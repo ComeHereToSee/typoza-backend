@@ -41,12 +41,9 @@ jobs:
           check-latest: true
           cache: false
       - name: minio
-        run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=typoza -e MINIO_ROOT_PASSWORD=typoza-secret \
-            minio/minio server /data
-          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
+        run: ci/step.sh minio ci/start-minio.sh
       - name: vet
+        if: ${{ !cancelled() }}
         run: ci/step.sh vet go vet ./...
       - name: test
         if: ${{ !cancelled() }}
@@ -56,7 +53,9 @@ jobs:
         run: ci/step.sh govulncheck go run golang.org/x/vuln/cmd/govulncheck@latest ./...
       - name: gosec
         if: ${{ !cancelled() }}
-        run: ci/step.sh gosec go run github.com/securego/gosec/v2/cmd/gosec@latest -exclude-generated -severity medium ./...
+        env:
+          GOTOOLCHAIN: go1.26.9 # gosec v2.29.0 依赖的 x/tools v0.49.0 读不了 Go 1.27 导出数据
+        run: ci/step.sh gosec go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -exclude-generated -severity medium ./...
       - name: publish
         if: always()
         env:
