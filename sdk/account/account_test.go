@@ -75,7 +75,7 @@ func TestRegisterLoginChangePasswordRecover(t *testing.T) {
 
 	// 设备列表与吊销:第三台设备登录后被第一台吊销,其令牌随即失效。
 	c3 := newClient(t, srv.URL)
-	s3, err := Login(ctx, c3, "alice@example.com", "第一个密码", LoginOptions{Device: api.Device{Name: "旧电脑", Platform: "macos"}})
+	old3, err := Login(ctx, c3, "alice@example.com", "第一个密码", LoginOptions{Device: api.Device{Name: "旧电脑", Platform: "macos"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,11 +87,11 @@ func TestRegisterLoginChangePasswordRecover(t *testing.T) {
 		if d.Current != (d.ID == reg.DeviceID) {
 			t.Fatalf("current 标记不对: %+v", d)
 		}
-		if d.ID == s3.DeviceID && d.Name != "旧电脑" {
+		if d.ID == old3.DeviceID && d.Name != "旧电脑" {
 			t.Fatalf("设备名不对: %+v", d)
 		}
 	}
-	if err := c1.RevokeDevice(ctx, s3.DeviceID); err != nil {
+	if err := c1.RevokeDevice(ctx, old3.DeviceID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := c3.Account(ctx); !api.IsAuthError(err) {
