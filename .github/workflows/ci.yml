@@ -31,8 +31,8 @@ jobs:
     env:
       TYPOZA_TEST_DATABASE_URL: postgres://typoza:typoza@localhost:5432/typoza?sslmode=disable
       TYPOZA_TEST_S3_ENDPOINT: localhost:9000
-      TYPOZA_TEST_S3_ACCESS_KEY: typoza
-      TYPOZA_TEST_S3_SECRET_KEY: typoza-secret
+      TYPOZA_TEST_S3_ACCESS_KEY: rustfsadmin
+      TYPOZA_TEST_S3_SECRET_KEY: rustfsadmin
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -40,8 +40,8 @@ jobs:
           go-version: stable
           check-latest: true
           cache: false
-      - name: minio
-        run: ci/step.sh minio ci/start-minio.sh
+      - name: s3
+        run: ci/step.sh s3 ci/start-s3.sh
       - name: vet
         if: ${{ !cancelled() }}
         run: ci/step.sh vet go vet ./...

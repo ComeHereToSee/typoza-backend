@@ -39,7 +39,7 @@ docker compose up -d --build
 
 - 单元测试不依赖外部服务。
 - 集成测试在设置了 `TYPOZA_TEST_DATABASE_URL`(PostgreSQL 17)时运行,缺失则跳过;
-  `TYPOZA_TEST_S3_ENDPOINT` / `TYPOZA_TEST_S3_ACCESS_KEY` / `TYPOZA_TEST_S3_SECRET_KEY` 齐全时用 MinIO,否则用本地磁盘。
+  `TYPOZA_TEST_S3_ENDPOINT` / `TYPOZA_TEST_S3_ACCESS_KEY` / `TYPOZA_TEST_S3_SECRET_KEY` 齐全时用 S3 兼容服务(CI 里是 RustFS),否则用本地磁盘。
   每个测试使用独立的随机 schema 与随机桶,可并行。
 - 测试辅助:`internal/testutil.NewTestConfig(t testing.TB) config.Config`,配合
   `app.New(ctx, cfg, log)`、`(*App).Handler()`、`(*App).Close()` 即可在 httptest 中起一个完整实例。

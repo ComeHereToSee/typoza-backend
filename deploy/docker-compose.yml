@@ -1,4 +1,5 @@
-# Typoza 云端保存服务自托管编排:server + PostgreSQL 17 + MinIO + Caddy(自动 HTTPS)。
+# Typoza 云端保存服务自托管编排:server + PostgreSQL 17 + Caddy(自动 HTTPS)。
+# 块密文默认存在本机磁盘卷(blobdata);要用 S3 / R2 / B2 等对象存储,把 TYPOZA_BLOB_DRIVER 改为 s3 并补齐 TYPOZA_S3_*。
 # 用法(在 deploy/ 目录):cp .env.example .env,按注释生成并填写密钥,然后 docker compose up -d。
 # 所有密钥只从 .env 注入,本文件不含任何真实密钥。
 
@@ -19,22 +20,6 @@ services:
       retries: 30
     networks: [typoza]
 
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?请在 .env 中设置 MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?请在 .env 中设置 MINIO_ROOT_PASSWORD}
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-    networks: [typoza]
-
   server:
     build:
       context: ..
@@ -44,18 +29,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
     environment:
       TYPOZA_LISTEN: ":8080"
       TYPOZA_METRICS_LISTEN: ":9090" # 指标只在容器网络内可达,不经 Caddy 暴露
       TYPOZA_DATABASE_URL: postgres://typoza:${POSTGRES_PASSWORD}@postgres:5432/typoza?sslmode=disable
-      TYPOZA_BLOB_DRIVER: s3
-      TYPOZA_S3_ENDPOINT: minio:9000
-      TYPOZA_S3_BUCKET: typoza
-      TYPOZA_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
-      TYPOZA_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-      TYPOZA_S3_USE_TLS: "false"
+      TYPOZA_BLOB_DRIVER: ${TYPOZA_BLOB_DRIVER:-fs}
+      TYPOZA_BLOB_FS_DIR: /data/blobs
+      TYPOZA_S3_ENDPOINT: ${TYPOZA_S3_ENDPOINT:-}
+      TYPOZA_S3_BUCKET: ${TYPOZA_S3_BUCKET:-typoza}
+      TYPOZA_S3_ACCESS_KEY: ${TYPOZA_S3_ACCESS_KEY:-}
+      TYPOZA_S3_SECRET_KEY: ${TYPOZA_S3_SECRET_KEY:-}
+      TYPOZA_S3_REGION: ${TYPOZA_S3_REGION:-}
+      TYPOZA_S3_USE_TLS: ${TYPOZA_S3_USE_TLS:-true}
       TYPOZA_JWT_PRIVATE_KEY: ${TYPOZA_JWT_PRIVATE_KEY:?请在 .env 中设置 TYPOZA_JWT_PRIVATE_KEY}
       TYPOZA_DATA_KEY: ${TYPOZA_DATA_KEY:?请在 .env 中设置 TYPOZA_DATA_KEY}
       TYPOZA_ENUM_SECRET: ${TYPOZA_ENUM_SECRET:?请在 .env 中设置 TYPOZA_ENUM_SECRET}
@@ -64,6 +49,8 @@ services:
       # 只信 Caddy 所在网段传来的 X-Forwarded-For;网段由下方 networks 固定。
       TYPOZA_TRUSTED_PROXIES: 172.30.89.0/24
       TYPOZA_LOG_LEVEL: ${TYPOZA_LOG_LEVEL:-info}
+    volumes:
+      - blobdata:/data
     networks: [typoza]
 
   caddy:
@@ -91,6 +78,6 @@ networks:
 
 volumes:
   pgdata:
-  miniodata:
+  blobdata:
   caddydata:
   caddyconfig:

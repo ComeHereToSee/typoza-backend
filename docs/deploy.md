@@ -4,14 +4,17 @@
 
 ## 1. 组成
 
-`deploy/docker-compose.yml` 一次拉起四个容器:
+`deploy/docker-compose.yml` 一次拉起三个容器:
 
 | 服务 | 作用 | 数据卷 |
 |---|---|---|
 | `caddy` | 对外 80/443,自动申请与续期 HTTPS 证书,反代到 server | `caddydata`(证书)、`caddyconfig` |
-| `server` | typoza-server(本仓库构建) | 无状态 |
+| `server` | typoza-server(本仓库构建);块密文默认存本机磁盘 | `blobdata`(块密文) |
 | `postgres` | PostgreSQL 17,账号与同步元数据 | `pgdata` |
-| `minio` | S3 兼容对象存储,块密文 | `miniodata` |
+
+要把块密文放到对象存储(AWS S3、Cloudflare R2、Backblaze B2,或自建的 RustFS / Garage 等 S3 兼容服务),在 `.env` 里加上
+`TYPOZA_BLOB_DRIVER=s3` 与 `TYPOZA_S3_ENDPOINT`、`TYPOZA_S3_BUCKET`、`TYPOZA_S3_ACCESS_KEY`、`TYPOZA_S3_SECRET_KEY`(必要时 `TYPOZA_S3_REGION`、`TYPOZA_S3_USE_TLS`)。
+> MinIO 官方镜像已从 Docker Hub 下架,所以默认编排不再内置对象存储服务。
 
 服务器只保存密文;即使数据卷整体泄露,没有用户主密码或恢复码也解不开文件内容。
 
@@ -26,7 +29,6 @@ cp .env.example .env
 
 ```bash
 openssl rand -hex 24      # POSTGRES_PASSWORD
-openssl rand -hex 24      # MINIO_ROOT_PASSWORD
 openssl rand -base64 32   # TYPOZA_JWT_PRIVATE_KEY
 openssl rand -base64 32   # TYPOZA_DATA_KEY
 openssl rand -base64 32   # TYPOZA_ENUM_SECRET
@@ -41,7 +43,7 @@ curl https://sync.example.com/healthz   # {"status":"ok"}
 curl https://sync.example.com/readyz    # {"status":"ready"}
 ```
 
-首次启动会自动建表(迁移)并在 MinIO 里创建 `typoza` 桶。
+首次启动会自动建表(迁移);使用 S3 驱动时还会自动创建桶。
 
 自用建议:在客户端注册完自己的账号后,把 `.env` 里的 `TYPOZA_REGISTRATION` 改成 `closed`,再 `docker compose up -d` 让它生效。
 
@@ -52,7 +54,7 @@ curl https://sync.example.com/readyz    # {"status":"ready"}
 | `TYPOZA_JWT_PRIVATE_KEY` | 泄露可伪造访问令牌,立即更换;更换后所有设备需重新登录(刷新令牌仍有效,客户端会自动换新访问令牌) |
 | `TYPOZA_DATA_KEY` | 丢失后已开启的二次验证无法校验,用户只能走恢复流程(会关闭二次验证);务必与数据库备份分开保管 |
 | `TYPOZA_ENUM_SECRET` | 更换只会让未注册邮箱的假盐变化,不影响已注册账号 |
-| `POSTGRES_PASSWORD` / `MINIO_ROOT_PASSWORD` | 容器内部使用;更换时需同时改容器内的账号口令 |
+| `POSTGRES_PASSWORD` | 容器内部使用;更换时需同时改数据库里的账号口令 |
 
 ## 4. 全部环境变量
 
@@ -67,7 +69,7 @@ curl https://sync.example.com/readyz    # {"status":"ready"}
 | `TYPOZA_S3_BUCKET` | s3 时必填 | 桶不存在会自动创建 |
 | `TYPOZA_S3_ACCESS_KEY` / `TYPOZA_S3_SECRET_KEY` | s3 时必填 | |
 | `TYPOZA_S3_REGION` | 空 | 为空时自动探测 |
-| `TYPOZA_S3_USE_TLS` | `true` | 内网 MinIO 设 `false` |
+| `TYPOZA_S3_USE_TLS` | `true` | 内网自建 S3 兼容服务走 http 时设 `false` |
 | `TYPOZA_JWT_PRIVATE_KEY` | 必填 | Ed25519 32 字节种子,base64 |
 | `TYPOZA_JWT_KEY_ID` | 公钥指纹 | JWT 头 `kid`;多实例自动一致 |
 | `TYPOZA_DATA_KEY` | 必填 | 32 字节,base64 |
@@ -90,14 +92,14 @@ curl https://sync.example.com/readyz    # {"status":"ready"}
 
 ## 5. 备份与恢复
 
-需要一起备份的只有三样:**PostgreSQL**、**MinIO 数据**、**`.env`**。两份数据最好在同一时间点附近备份;先备数据库、后备对象存储更安全(对象只会多不会少,多出的会被块回收清理)。
+需要一起备份的只有三样:**PostgreSQL**、**块密文(`blobdata` 卷或对象存储桶)**、**`.env`**。两份数据最好在同一时间点附近备份;先备数据库、后备对象存储更安全(对象只会多不会少,多出的会被块回收清理)。
 
 ```bash
 cd deploy
 # 数据库
 docker compose exec -T postgres pg_dump -U typoza -Fc typoza > typoza-$(date +%F).dump
 # 对象存储(停写或低峰期执行;也可用 mc mirror 推到异地)
-docker run --rm -v deploy_miniodata:/data -v "$PWD":/backup busybox tar czf /backup/minio-$(date +%F).tgz -C /data .
+docker run --rm -v deploy_blobdata:/data -v "$PWD":/backup busybox tar czf /backup/blobs-$(date +%F).tgz -C /data .
 ```
 
 > 卷名前缀是 compose 项目名(默认等于目录名 `deploy`),用 `docker volume ls` 确认。
@@ -105,10 +107,10 @@ docker run --rm -v deploy_miniodata:/data -v "$PWD":/backup busybox tar czf /bac
 恢复(在新机器上完成第 2 节、但先不要启动 server):
 
 ```bash
-docker compose up -d postgres minio
+docker compose up -d postgres
 docker compose exec -T postgres pg_restore -U typoza -d typoza --clean --if-exists < typoza-2026-10-16.dump
-docker compose stop minio
-docker run --rm -v deploy_miniodata:/data -v "$PWD":/backup busybox sh -c 'cd /data && tar xzf /backup/minio-2026-10-16.tgz'
+docker volume create deploy_blobdata
+docker run --rm -v deploy_blobdata:/data -v "$PWD":/backup busybox sh -c 'cd /data && tar xzf /backup/blobs-2026-10-16.tgz && chown -R 65532:65532 /data'
 docker compose up -d
 ```
 
@@ -146,5 +148,5 @@ TYPOZA_JWT_PRIVATE_KEY=... TYPOZA_DATA_KEY=... TYPOZA_ENUM_SECRET=... ./typoza-s
 ## 9. 排查
 
 - `docker compose logs server`:JSON 日志,每个请求带 `requestId`,与响应头 `X-Request-Id` 对应。
-- `/readyz` 返回 503:看 server 日志里的「就绪检查失败」,通常是数据库或 MinIO 未就绪。
+- `/readyz` 返回 503:看 server 日志里的「就绪检查失败」,通常是数据库或对象存储(使用 S3 驱动时)未就绪。
 - 指标:`docker compose exec caddy wget -qO- http://server:9090/metrics`(指标端口不经 Caddy 对外)。
