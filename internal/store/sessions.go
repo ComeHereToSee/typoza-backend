@@ -28,8 +28,12 @@ func insertDevice(ctx context.Context, q querier, userID string, d NewDevice) er
 }
 
 func insertRefresh(ctx context.Context, q querier, deviceID string, r NewRefresh) error {
-	_, err := q.Exec(ctx, `INSERT INTO refresh_tokens (id, device_id, family_id, token_hash, expires_at)
-		VALUES ($1, $2, $3, $4, $5)`, r.ID, deviceID, r.FamilyID, r.Hash, r.ExpiresAt)
+	var parent any
+	if r.ParentID != "" {
+		parent = r.ParentID
+	}
+	_, err := q.Exec(ctx, `INSERT INTO refresh_tokens (id, device_id, family_id, token_hash, expires_at, parent_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`, r.ID, deviceID, r.FamilyID, r.Hash, r.ExpiresAt, parent)
 	if err != nil {
 		return fmt.Errorf("写入刷新令牌: %w", err)
 	}
@@ -97,11 +101,16 @@ func (s *Store) LoginDevice(ctx context.Context, userID, reuseID string, d NewDe
 	return deviceID, nil
 }
 
+// RefreshReuseGrace 是刷新令牌轮换后的宽限期(协议 §3.1):期内旧令牌再次出现、且它换出的新令牌
+// 从未被用过,说明客户端没收到上次的响应(网络中断、进程被杀),作废那个没送达的新令牌并重新签发。
+const RefreshReuseGrace = 30 * time.Second
+
 // RotateRefresh 用旧令牌摘要换新令牌(轮换)。
 //   - 不存在、已过期、已吊销:ErrTokenInvalid;
-//   - 已用过(被重放):吊销该设备整条令牌链并提交,返回 ErrRefreshReuse(协议 §3.1)。
+//   - 已用过:宽限期内且换出的新令牌没被用过 → 重新签发;否则视为被重放,
+//     吊销该设备整条令牌链并提交,返回 ErrRefreshReuse(协议 §3.1)。
 //
-// 行锁保证同一令牌的并发刷新只有一个成功,其余按重放处理。
+// 行锁保证同一令牌的并发刷新串行执行。
 func (s *Store) RotateRefresh(ctx context.Context, hash []byte, next NewRefresh, now time.Time) (userID, deviceID string, err error) {
 	reused := false
 	err = s.inTx(ctx, func(tx pgx.Tx) error {
@@ -127,16 +136,24 @@ func (s *Store) RotateRefresh(ctx context.Context, hash []byte, next NewRefresh,
 			return ErrTokenInvalid
 		}
 		if usedAt != nil {
-			reused = true
-			return revokeDevice(ctx, tx, deviceID, now)
-		}
-		if !expiresAt.After(now) {
-			return ErrTokenInvalid
-		}
-		if _, err := tx.Exec(ctx, `UPDATE refresh_tokens SET used_at = $2 WHERE id = $1`, tokenID, now); err != nil {
-			return fmt.Errorf("标记令牌已用: %w", err)
+			retry, err := lostResponseRetry(ctx, tx, tokenID, *usedAt, now)
+			if err != nil {
+				return err
+			}
+			if !retry {
+				reused = true
+				return revokeDevice(ctx, tx, deviceID, now)
+			}
+		} else {
+			if !expiresAt.After(now) {
+				return ErrTokenInvalid
+			}
+			if _, err := tx.Exec(ctx, `UPDATE refresh_tokens SET used_at = $2 WHERE id = $1`, tokenID, now); err != nil {
+				return fmt.Errorf("标记令牌已用: %w", err)
+			}
 		}
 		next.FamilyID = familyID
+		next.ParentID = tokenID
 		if err := insertRefresh(ctx, tx, deviceID, next); err != nil {
 			return err
 		}
@@ -155,6 +172,27 @@ func (s *Store) RotateRefresh(ctx context.Context, hash []byte, next NewRefresh,
 		return userID, deviceID, ErrRefreshReuse
 	}
 	return userID, deviceID, nil
+}
+
+// lostResponseRetry 判断已用令牌的再次出现是否是「没收到响应的重试」;是则作废它换出的、
+// 从未被用过的新令牌(只保留一条有效令牌链),由调用方重新签发。
+func lostResponseRetry(ctx context.Context, tx pgx.Tx, tokenID string, usedAt, now time.Time) (bool, error) {
+	if now.Sub(usedAt) > RefreshReuseGrace {
+		return false, nil
+	}
+	var childUsed bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM refresh_tokens WHERE parent_id = $1 AND used_at IS NOT NULL)`,
+		tokenID).Scan(&childUsed)
+	if err != nil {
+		return false, fmt.Errorf("查询换出的刷新令牌: %w", err)
+	}
+	if childUsed {
+		return false, nil
+	}
+	if _, err := tx.Exec(ctx, `UPDATE refresh_tokens SET revoked_at = $2 WHERE parent_id = $1 AND revoked_at IS NULL`, tokenID, now); err != nil {
+		return false, fmt.Errorf("作废未送达的刷新令牌: %w", err)
+	}
+	return true, nil
 }
 
 // RevokeDevice 吊销账号下的某个设备。设备不存在、不属于该账号或已吊销时返回 ErrNotFound。

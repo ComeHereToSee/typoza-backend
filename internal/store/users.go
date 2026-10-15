@@ -75,6 +75,8 @@ type NewRefresh struct {
 	FamilyID  string
 	Hash      []byte
 	ExpiresAt time.Time
+	// ParentID 是换出它的旧令牌;登录、注册、恢复时为空。
+	ParentID string
 }
 
 // PasswordUpdate 是改密与恢复时替换的主密码相关字段。

@@ -59,10 +59,28 @@ func TestRegisterLoginRefreshLogout(t *testing.T) {
 	}
 	e.call(http.MethodGet, "/v1/account", t1.AccessToken, nil, http.StatusOK, nil)
 
-	// 旧令牌重放 → refresh_reuse,整条链(含刚轮换出的新令牌)被吊销,设备访问令牌立即失效。
-	e.expectError(http.MethodPost, "/v1/auth/refresh", "", map[string]string{"refreshToken": s.RefreshToken}, http.StatusUnauthorized, "refresh_reuse")
+	// 响应丢失后重试:宽限期内、换出的 t1 从没被用过 → 重新签发 t2,没送达的 t1 作废。
+	var t2 tokens
+	r = e.refresh(s.RefreshToken)
+	if r.status != http.StatusOK {
+		t.Fatalf("宽限期内重试应成功: %d %s", r.status, r.body)
+	}
+	decodeInto(t, r.body, &t2)
+	if t2.RefreshToken == t1.RefreshToken {
+		t.Fatal("重试应签发新的刷新令牌")
+	}
 	e.expectError(http.MethodPost, "/v1/auth/refresh", "", map[string]string{"refreshToken": t1.RefreshToken}, http.StatusUnauthorized, "unauthorized")
-	e.expectError(http.MethodGet, "/v1/account", t1.AccessToken, nil, http.StatusUnauthorized, "unauthorized")
+
+	// t2 用过之后旧令牌再出现 → 不可能是丢响应,按重放处理:整条链被吊销,访问令牌立即失效。
+	var t3 tokens
+	r = e.refresh(t2.RefreshToken)
+	if r.status != http.StatusOK {
+		t.Fatalf("刷新失败: %d %s", r.status, r.body)
+	}
+	decodeInto(t, r.body, &t3)
+	e.expectError(http.MethodPost, "/v1/auth/refresh", "", map[string]string{"refreshToken": s.RefreshToken}, http.StatusUnauthorized, "refresh_reuse")
+	e.expectError(http.MethodPost, "/v1/auth/refresh", "", map[string]string{"refreshToken": t3.RefreshToken}, http.StatusUnauthorized, "unauthorized")
+	e.expectError(http.MethodGet, "/v1/account", t3.AccessToken, nil, http.StatusUnauthorized, "unauthorized")
 
 	// 另一台设备不受影响;登出后其令牌全部失效。
 	e.call(http.MethodGet, "/v1/account", s2.AccessToken, nil, http.StatusOK, nil)
@@ -72,6 +90,19 @@ func TestRegisterLoginRefreshLogout(t *testing.T) {
 
 	// 格式错误的刷新令牌。
 	e.expectError(http.MethodPost, "/v1/auth/refresh", "", map[string]string{"refreshToken": "tzr_short"}, http.StatusUnauthorized, "unauthorized")
+}
+
+func TestRefreshReuseAfterGraceIsReplay(t *testing.T) {
+	e := newEnv(t, nil)
+	u := e.register(uniqueEmail(t))
+	s := e.login(u, "设备 A", nil)
+	if r := e.refresh(s.RefreshToken); r.status != http.StatusOK {
+		t.Fatalf("刷新失败: %d %s", r.status, r.body)
+	}
+	// 宽限期已过:即使换出的新令牌没被用过,旧令牌再出现也按重放处理。
+	e.exec(`UPDATE refresh_tokens SET used_at = used_at - interval '1 minute' WHERE token_hash = $1`, auth.Digest(s.RefreshToken))
+	e.expectError(http.MethodPost, "/v1/auth/refresh", "", map[string]string{"refreshToken": s.RefreshToken}, http.StatusUnauthorized, "refresh_reuse")
+	e.expectError(http.MethodGet, "/v1/account", s.AccessToken, nil, http.StatusUnauthorized, "unauthorized")
 }
 
 func TestLoginReusesDeviceID(t *testing.T) {
