@@ -1,6 +1,6 @@
-// Package fakeserver 是 sdk 单元测试用的内存假服务端,按 sync-protocol §4 实现最小子集:
-// 账号(prelogin/register/login/refresh/logout/recover/password/account)、库、数据块、
-// 提交与变更、历史版本、回收站、WebSocket 事件。
+// Package fakeserver 是内存假服务端,供 sdk 与宿主(如客户端辅助进程)的单元测试使用,
+// 按 sync-protocol §4 实现最小子集:账号(prelogin/register/login/refresh/logout/recover/
+// password/account)、设备、库、数据块、提交与变更、历史版本、回收站、WebSocket 事件。
 //
 // 它只验证客户端行为,不做服务端该做的安全加固(口令不做 Argon2、不限流、无 TOTP)。
 package fakeserver
@@ -40,6 +40,7 @@ type user struct {
 	createdAt  time.Time
 	chunks     map[string][]byte
 	devices    map[string]bool // deviceID → 是否有效
+	deviceInfo map[string]api.DeviceInfo
 }
 
 type accessToken struct {
@@ -112,6 +113,8 @@ func New() *Server {
 	m.HandleFunc("POST /v1/auth/recover/finish", s.recoverFinish)
 	m.HandleFunc("GET /v1/account", s.authed(s.account))
 	m.HandleFunc("POST /v1/account/password", s.authed(s.password))
+	m.HandleFunc("GET /v1/devices", s.authed(s.listDevices))
+	m.HandleFunc("DELETE /v1/devices/{deviceId}", s.authed(s.deleteDevice))
 	m.HandleFunc("GET /v1/vaults", s.authed(s.listVaults))
 	m.HandleFunc("POST /v1/vaults", s.authed(s.createVault))
 	m.HandleFunc("POST /v1/chunks/check", s.authed(s.checkChunks))
@@ -264,12 +267,19 @@ func (s *Server) userByID(id string) *user {
 }
 
 // issueSession 新建或复用设备并签发令牌,需持有 s.mu。
-func (s *Server) issueSession(u *user, deviceID string) api.Session {
+func (s *Server) issueSession(u *user, deviceID string, dev api.Device) api.Session {
 	if deviceID == "" || !u.devicesKnown(deviceID) {
 		deviceID = uuid.New()
 	}
 	s.revokeDevice(u, deviceID)
 	u.devices[deviceID] = true
+	now := time.Now().UTC()
+	info, ok := u.deviceInfo[deviceID]
+	if !ok {
+		info = api.DeviceInfo{ID: deviceID, CreatedAt: now}
+	}
+	info.Name, info.Platform, info.LastSeenAt = dev.Name, dev.Platform, now
+	u.deviceInfo[deviceID] = info
 	at, rt := randToken("at_"), randToken("tzr_")
 	s.access[at] = &accessToken{userID: u.id, deviceID: deviceID}
 	s.refresh[rt] = &refreshToken{userID: u.id, deviceID: deviceID}
@@ -345,10 +355,10 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	u := &user{
 		id: uuid.New(), email: email, kdf: in.KDF, authKey: in.AuthKey, eak: in.EncryptedAccountKey,
 		recAuthKey: in.RecoveryAuthKey, reak: in.RecoveryEncryptedAccountKey, createdAt: time.Now().UTC(),
-		chunks: make(map[string][]byte), devices: make(map[string]bool),
+		chunks: make(map[string][]byte), devices: make(map[string]bool), deviceInfo: make(map[string]api.DeviceInfo),
 	}
 	s.users[email] = u
-	writeJSON(w, http.StatusCreated, s.issueSession(u, ""))
+	writeJSON(w, http.StatusCreated, s.issueSession(u, "", in.Device))
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -363,7 +373,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, api.CodeUnauthorized, "账号或密码错误", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.issueSession(u, in.DeviceID))
+	writeJSON(w, http.StatusOK, s.issueSession(u, in.DeviceID, in.Device))
 }
 
 func (s *Server) refreshTokens(w http.ResponseWriter, r *http.Request) {
@@ -444,7 +454,7 @@ func (s *Server) recoverFinish(w http.ResponseWriter, r *http.Request) {
 	for d := range u.devices {
 		s.revokeDevice(u, d)
 	}
-	writeJSON(w, http.StatusOK, s.issueSession(u, ""))
+	writeJSON(w, http.StatusOK, s.issueSession(u, "", in.Device))
 }
 
 func (s *Server) account(w http.ResponseWriter, r *http.Request) {
@@ -484,6 +494,40 @@ func (s *Server) password(w http.ResponseWriter, r *http.Request) {
 			s.revokeDevice(u, d)
 		}
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ---- 设备 ----
+
+func (s *Server) listDevices(w http.ResponseWriter, r *http.Request) {
+	p := who(r)
+	s.mu.Lock()
+	u := s.userByID(p.userID)
+	out := make([]api.DeviceInfo, 0, len(u.devices))
+	for id, active := range u.devices {
+		if !active {
+			continue
+		}
+		info := u.deviceInfo[id]
+		info.Current = id == p.deviceID
+		out = append(out, info)
+	}
+	s.mu.Unlock()
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	writeJSON(w, http.StatusOK, map[string]any{"devices": out})
+}
+
+func (s *Server) deleteDevice(w http.ResponseWriter, r *http.Request) {
+	p := who(r)
+	id := r.PathValue("deviceId")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u := s.userByID(p.userID)
+	if !u.devices[id] {
+		writeErr(w, http.StatusNotFound, api.CodeNotFound, "设备不存在", nil)
+		return
+	}
+	s.revokeDevice(u, id)
 	w.WriteHeader(http.StatusNoContent)
 }
 

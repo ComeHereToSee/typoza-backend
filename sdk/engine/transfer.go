@@ -236,36 +236,12 @@ func (e *Engine) fetch(ctx context.Context, rel string, m crypto.Manifest) (stri
 		return "", nil, fmt.Errorf("engine: 预分配 %s: %w", rel, err)
 	}
 
-	// 同一块可能在文件里出现多次:只下载一次,写到所有位置。
-	pos := make(map[string][]int, len(m.Chunks))
-	var order []string
-	for i, id := range m.Chunks {
-		if _, ok := pos[id]; !ok {
-			order = append(order, id)
-		}
-		pos[id] = append(pos[id], i)
-	}
 	var got atomic.Int64
-	err = parallel(ctx, transferConcurrency, len(order), func(ctx context.Context, j int) error {
-		id := order[j]
-		sealed, err := e.client.GetChunk(ctx, id)
-		if err != nil {
-			return fmt.Errorf("engine: 下载 %s 的块 %s: %w", rel, id, err)
+	err = e.downloadChunks(ctx, rel, m, func(off int64, plain []byte) error {
+		if _, err := f.WriteAt(plain, off); err != nil {
+			return fmt.Errorf("engine: 写临时文件: %w", err)
 		}
-		plain, err := crypto.DecryptChunk(e.keys.Chunk, e.keys.ChunkID, id, sealed)
-		if err != nil {
-			return fmt.Errorf("engine: %s: %w", rel, err)
-		}
-		for _, i := range pos[id] {
-			off := int64(i) * crypto.ChunkSize
-			if want := min(int64(crypto.ChunkSize), m.Size-off); int64(len(plain)) != want {
-				return fmt.Errorf("engine: %s 的第 %d 块长度 %d,应为 %d", rel, i, len(plain), want)
-			}
-			if _, err := f.WriteAt(plain, off); err != nil {
-				return fmt.Errorf("engine: 写临时文件: %w", err)
-			}
-			e.emit(Event{Kind: EventProgress, Path: rel, Direction: DirectionDown, Bytes: got.Add(int64(len(plain))), Total: m.Size})
-		}
+		e.emit(Event{Kind: EventProgress, Path: rel, Direction: DirectionDown, Bytes: got.Add(int64(len(plain))), Total: m.Size})
 		return nil
 	})
 	if err != nil {
@@ -309,6 +285,41 @@ func (e *Engine) fetch(ctx context.Context, rel string, m crypto.Manifest) (stri
 	}
 	ok = true
 	return tmp, data, nil
+}
+
+// downloadChunks 并发下载清单 m 的全部块,逐块解密、HMAC 复核、核对长度后交给 put(偏移, 明文)。
+// 同一块可能在文件里出现多次:只下载一次,对每个位置各调一次 put(put 须可并发调用)。
+// 全文摘要由调用方在拼装后核对。
+func (e *Engine) downloadChunks(ctx context.Context, rel string, m crypto.Manifest, put func(off int64, plain []byte) error) error {
+	pos := make(map[string][]int, len(m.Chunks))
+	var order []string
+	for i, id := range m.Chunks {
+		if _, ok := pos[id]; !ok {
+			order = append(order, id)
+		}
+		pos[id] = append(pos[id], i)
+	}
+	return parallel(ctx, transferConcurrency, len(order), func(ctx context.Context, j int) error {
+		id := order[j]
+		sealed, err := e.client.GetChunk(ctx, id)
+		if err != nil {
+			return fmt.Errorf("engine: 下载 %s 的块 %s: %w", rel, id, err)
+		}
+		plain, err := crypto.DecryptChunk(e.keys.Chunk, e.keys.ChunkID, id, sealed)
+		if err != nil {
+			return fmt.Errorf("engine: %s: %w", rel, err)
+		}
+		for _, i := range pos[id] {
+			off := int64(i) * crypto.ChunkSize
+			if want := min(int64(crypto.ChunkSize), m.Size-off); int64(len(plain)) != want {
+				return fmt.Errorf("engine: %s 的第 %d 块长度 %d,应为 %d", rel, i, len(plain), want)
+			}
+			if err := put(off, plain); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // download 下载并原子落盘到 rel。目标状态不符合 ex(用户刚改过)时放弃,placed=false 且不报错。

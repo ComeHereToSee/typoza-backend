@@ -15,6 +15,9 @@ import (
 // ErrNotTracked 表示路径从未同步过(状态库里没有记录)。
 var ErrNotTracked = errors.New("engine: 该路径尚未同步,没有云端记录")
 
+// ErrTooLarge 表示要读取的版本内容超过调用方给的上限。
+var ErrTooLarge = errors.New("engine: 版本内容超过读取上限")
+
 // VersionInfo 是一个历史版本(清单已解密)。
 type VersionInfo struct {
 	FileID      string
@@ -123,6 +126,51 @@ func (e *Engine) Restore(ctx context.Context, path string, version int64) error 
 		return err
 	}
 	return e.syncLocked(ctx)
+}
+
+// ReadVersion 下载并解密 path 的历史版本 version 的完整内容,只放在内存里、不落盘,
+// 供宿主预览或比对。内容超过 maxBytes 时不下载,返回 ErrTooLarge。
+func (e *Engine) ReadVersion(ctx context.Context, path string, version, maxBytes int64) ([]byte, error) {
+	rel, err := relpath.Clean(path)
+	if err != nil {
+		return nil, err
+	}
+	rec, err := e.store.get(rel)
+	if err != nil {
+		return nil, err
+	}
+	if rec == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNotTracked, rel)
+	}
+	infos, mans, err := e.versionsOf(ctx, rec.FileID)
+	if err != nil {
+		return nil, err
+	}
+	for i, info := range infos {
+		if info.Version != version {
+			continue
+		}
+		if info.Deleted {
+			return nil, fmt.Errorf("engine: %s 的版本 %d 是删除记录,没有内容", rel, version)
+		}
+		m := mans[i]
+		if m.Size > maxBytes {
+			return nil, fmt.Errorf("%w: %s 版本 %d 有 %d 字节", ErrTooLarge, rel, version, m.Size)
+		}
+		buf := make([]byte, m.Size)
+		err := e.downloadChunks(ctx, rel, m, func(off int64, plain []byte) error {
+			copy(buf[off:], plain)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		if crypto.ContentHash(e.keys.ChunkID, buf) != m.ContentHash {
+			return nil, fmt.Errorf("engine: %s 版本 %d 的内容摘要与清单不符(数据被篡改)", rel, version)
+		}
+		return buf, nil
+	}
+	return nil, fmt.Errorf("engine: %s 没有版本 %d(可能已超出保留期)", rel, version)
 }
 
 // recommit 以 head 为 baseVersion 重新提交旧内容 m;路径沿用 head 的路径。

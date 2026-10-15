@@ -9,7 +9,7 @@ import (
 
 	"github.com/ComeHereToSee/typoza-backend/sdk/api"
 	"github.com/ComeHereToSee/typoza-backend/sdk/crypto"
-	"github.com/ComeHereToSee/typoza-backend/sdk/internal/fakeserver"
+	"github.com/ComeHereToSee/typoza-backend/sdk/fakeserver"
 )
 
 func newServer(t *testing.T) *httptest.Server {
@@ -71,6 +71,34 @@ func TestRegisterLoginChangePasswordRecover(t *testing.T) {
 	}
 	if _, err := Login(ctx, newClient(t, srv.URL), "alice@example.com", "错误密码", LoginOptions{Device: dev}); !api.IsCode(err, api.CodeUnauthorized) {
 		t.Fatalf("错误密码应返回 unauthorized: %v", err)
+	}
+
+	// 设备列表与吊销:第三台设备登录后被第一台吊销,其令牌随即失效。
+	c3 := newClient(t, srv.URL)
+	s3, err := Login(ctx, c3, "alice@example.com", "第一个密码", LoginOptions{Device: api.Device{Name: "旧电脑", Platform: "macos"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	devs, err := c1.Devices(ctx)
+	if err != nil || len(devs) != 3 {
+		t.Fatalf("应有 3 台设备: %+v %v", devs, err)
+	}
+	for _, d := range devs {
+		if d.Current != (d.ID == reg.DeviceID) {
+			t.Fatalf("current 标记不对: %+v", d)
+		}
+		if d.ID == s3.DeviceID && d.Name != "旧电脑" {
+			t.Fatalf("设备名不对: %+v", d)
+		}
+	}
+	if err := c1.RevokeDevice(ctx, s3.DeviceID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c3.Account(ctx); !api.IsAuthError(err) {
+		t.Fatalf("被吊销的设备应失去登录态: %v", err)
+	}
+	if devs, _ = c1.Devices(ctx); len(devs) != 2 {
+		t.Fatalf("吊销后应剩 2 台设备: %+v", devs)
 	}
 
 	// 改主密码:旧密码失效,新密码可用且账户密钥不变。

@@ -19,8 +19,8 @@ import (
 
 	"github.com/ComeHereToSee/typoza-backend/sdk/api"
 	"github.com/ComeHereToSee/typoza-backend/sdk/crypto"
+	"github.com/ComeHereToSee/typoza-backend/sdk/fakeserver"
 	"github.com/ComeHereToSee/typoza-backend/sdk/ignore"
-	"github.com/ComeHereToSee/typoza-backend/sdk/internal/fakeserver"
 )
 
 // harness 是一个账号 + 一个库;每个 device 是一台独立设备(各自的根目录、状态目录与令牌)。
@@ -650,6 +650,16 @@ func TestHistoryRestore(t *testing.T) {
 	vs, err := a.eng.Versions(context.Background(), "h.md")
 	if err != nil || len(vs) != 3 || vs[0].Version != 3 || vs[2].Version != 1 || vs[2].Path != "h.md" {
 		t.Fatalf("历史版本不对: %+v %v", vs, err)
+	}
+	old, err := a.eng.ReadVersion(context.Background(), "h.md", 2, 1<<20)
+	if err != nil || string(old) != "第 2 版\n" {
+		t.Fatalf("读取版本 2 不对: %q %v", old, err)
+	}
+	if _, err := a.eng.ReadVersion(context.Background(), "h.md", 2, 3); !errors.Is(err, ErrTooLarge) {
+		t.Fatalf("超过上限应返回 ErrTooLarge: %v", err)
+	}
+	if _, err := a.eng.ReadVersion(context.Background(), "h.md", 9, 1<<20); err == nil {
+		t.Fatal("不存在的版本应报错")
 	}
 	if err := a.eng.Restore(context.Background(), "h.md", 1); err != nil {
 		t.Fatal(err)
