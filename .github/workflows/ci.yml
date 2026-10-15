@@ -1,0 +1,84 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # ci/publish.sh 把日志与产物推到 ci/<job> 分支
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI_OUT: ${{ github.workspace }}/ci-out
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: typoza
+          POSTGRES_PASSWORD: typoza
+          POSTGRES_DB: typoza
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U typoza" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TYPOZA_TEST_DATABASE_URL: postgres://typoza:typoza@localhost:5432/typoza?sslmode=disable
+      TYPOZA_TEST_S3_ENDPOINT: localhost:9000
+      TYPOZA_TEST_S3_ACCESS_KEY: typoza
+      TYPOZA_TEST_S3_SECRET_KEY: typoza-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+      - name: minio
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=typoza -e MINIO_ROOT_PASSWORD=typoza-secret \
+            minio/minio server /data
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
+      - name: vet
+        run: ci/step.sh vet go vet ./...
+      - name: test
+        if: ${{ !cancelled() }}
+        run: ci/step.sh test go test -race -count=1 -coverprofile="$CI_OUT/coverage.out" ./...
+      - name: govulncheck
+        if: ${{ !cancelled() }}
+        run: ci/step.sh govulncheck go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - name: gosec
+        if: ${{ !cancelled() }}
+        run: ci/step.sh gosec go run github.com/securego/gosec/v2/cmd/gosec@latest -exclude-generated -severity medium ./...
+      - name: publish
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ci/publish.sh test "${{ job.status }}"
+
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+      - name: cross build
+        run: |
+          mkdir -p "$CI_OUT/artifacts"
+          ci/step.sh build-linux-amd64 env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/typoza-server-linux-amd64 ./cmd/typoza-server
+          ci/step.sh build-darwin-arm64 env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o "$CI_OUT/artifacts/typoza-server-darwin-arm64" ./cmd/typoza-server
+      - name: publish
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ci/publish.sh build "${{ job.status }}"
