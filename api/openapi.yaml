@@ -1,0 +1,947 @@
+openapi: 3.1.0
+info:
+  title: Typoza 云端保存服务
+  version: "1.0.0"
+  summary: 账号、端到端加密存储、多设备增量同步、历史版本、回收站。
+  description: |
+    与 `docs/sync-protocol.md`(同步协议与加密规范 v1)一一对应;两者冲突时以协议文档为准。
+
+    - 服务器零知识:文件内容、文件名、清单都是客户端密文。
+    - 二进制字段放进 JSON 时一律 base64url 无填充(RFC 4648 §5)。
+    - 时间字段为 UTC、RFC 3339、毫秒精度,如 `2026-10-16T01:02:03.123Z`。
+    - 错误体统一为 `{"error":{"code","message",...}}`;附加字段(`missing`、`head`)位于 `error` 对象内。
+    - 未认证接口每 IP 30 次/分钟;登录与恢复每邮箱 10 次/分钟;已认证接口每账号 1200 次/分钟;
+      二次验证启用/关闭每账号 10 次/分钟。超限返回 429 `rate_limited` 与 `Retry-After`。
+servers:
+  - url: https://sync.example.com
+    description: 自托管实例(示例)
+tags:
+  - name: auth
+    description: 登录、注册、令牌与恢复
+  - name: account
+    description: 账号、二次验证与设备
+  - name: vaults
+    description: 库
+  - name: chunks
+    description: 数据块
+  - name: files
+    description: 文件提交、变更、历史与回收站
+  - name: events
+    description: 实时通知
+  - name: ops
+    description: 运维探针
+
+paths:
+  /healthz:
+    get:
+      tags: [ops]
+      summary: 存活探针
+      security: []
+      responses:
+        "200":
+          description: 进程存活
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+  /readyz:
+    get:
+      tags: [ops]
+      summary: 就绪探针(数据库与对象存储可用)
+      security: []
+      responses:
+        "200":
+          description: 就绪
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ready }
+        "503":
+          description: 依赖不可用(细节只进服务端日志)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: unavailable }
+
+  /v1/auth/prelogin:
+    post:
+      tags: [auth]
+      summary: 获取主密码 KDF 参数
+      description: 未注册邮箱也返回 200:盐 = HMAC-SHA256(服务端枚举密钥, 规范化邮箱) 前 16 字节、参数为默认值。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, description: 服务端 trim + 小写 }
+      responses:
+        "200":
+          description: KDF 参数
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kdf]
+                properties:
+                  kdf: { $ref: "#/components/schemas/KDF" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/register:
+    post:
+      tags: [auth]
+      summary: 注册
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: 会话对象
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403":
+          description: "`registration_closed`:服务器关闭了注册"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: "`email_taken`:邮箱已注册"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/login:
+    post:
+      tags: [auth]
+      summary: 登录
+      description: 带 `deviceId` 且属于该账号时复用设备记录(吊销其旧令牌链),否则新建设备。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, authKey, device]
+              properties:
+                email: { type: string }
+                authKey: { $ref: "#/components/schemas/Key32" }
+                totpCode: { type: string, pattern: "^[0-9]{6}$" }
+                device: { $ref: "#/components/schemas/DeviceInfo" }
+                deviceId: { $ref: "#/components/schemas/UUID" }
+      responses:
+        "200":
+          description: 会话对象
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: "`unauthorized`(账号或口令错误,不区分)/ `totp_required` / `totp_invalid`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: 刷新(轮换)令牌
+      description: 每次刷新轮换刷新令牌;已用过的旧令牌再次出现即吊销该设备整条令牌链并返回 401 `refresh_reuse`。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string, pattern: "^tzr_[A-Za-z0-9_-]{43}$" }
+      responses:
+        "200":
+          description: 新令牌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tokens" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: "`unauthorized`(不存在/过期/已吊销)/ `refresh_reuse`(被重放,该设备已登出)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: 登出(吊销当前设备令牌链)
+      responses:
+        "204": { description: 已登出 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/recover/begin:
+    post:
+      tags: [auth]
+      summary: 用恢复码开始恢复
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, recoveryAuthKey]
+              properties:
+                email: { type: string }
+                recoveryAuthKey: { $ref: "#/components/schemas/Key32" }
+      responses:
+        "200":
+          description: 恢复密文与一次性恢复令牌(10 分钟有效)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recoveryEncryptedAccountKey, recoveryToken]
+                properties:
+                  recoveryEncryptedAccountKey: { $ref: "#/components/schemas/Base64Url" }
+                  recoveryToken: { type: string, description: 不透明令牌 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/auth/recover/finish:
+    post:
+      tags: [auth]
+      summary: 完成恢复(重置主密码)
+      description: 替换主密码相关字段、关闭二次验证、吊销所有设备令牌;恢复码本身不变。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recoveryToken, kdf, authKey, encryptedAccountKey, device]
+              properties:
+                recoveryToken: { type: string }
+                kdf: { $ref: "#/components/schemas/KDF" }
+                authKey: { $ref: "#/components/schemas/Key32" }
+                encryptedAccountKey: { $ref: "#/components/schemas/Base64Url" }
+                device: { $ref: "#/components/schemas/DeviceInfo" }
+      responses:
+        "200":
+          description: 会话对象
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/account:
+    get:
+      tags: [account]
+      summary: 账号信息与用量
+      responses:
+        "200":
+          description: 账号
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    delete:
+      tags: [account]
+      summary: 删除账号与全部数据(块、清单、设备)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authKey]
+              properties:
+                authKey: { $ref: "#/components/schemas/Key32" }
+      responses:
+        "204": { description: 已删除 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/account/password:
+    post:
+      tags: [account]
+      summary: 修改主密码
+      description: 只重新包装 accountKey;吊销除当前设备外的所有设备令牌。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authKey, newKdf, newAuthKey, newEncryptedAccountKey]
+              properties:
+                authKey: { $ref: "#/components/schemas/Key32" }
+                newKdf: { $ref: "#/components/schemas/KDF" }
+                newAuthKey: { $ref: "#/components/schemas/Key32" }
+                newEncryptedAccountKey: { $ref: "#/components/schemas/Base64Url" }
+      responses:
+        "204": { description: 已修改 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/account/totp/setup:
+    post:
+      tags: [account]
+      summary: 生成待确认的 TOTP 密钥
+      description: 未启用前可重复调用,覆盖旧密钥;已启用时返回 400 `invalid_request`。
+      responses:
+        "200":
+          description: 密钥
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secret, otpauthUrl]
+                properties:
+                  secret: { type: string, description: "Base32(大写、无填充)" }
+                  otpauthUrl:
+                    type: string
+                    examples: ["otpauth://totp/Typoza:a@b.c?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Typoza"]
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/account/totp/enable:
+    post:
+      tags: [account]
+      summary: 用验证码确认并启用二次验证
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TOTPCode" }
+      responses:
+        "204": { description: 已启用 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: "`unauthorized` / `totp_invalid`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/account/totp/disable:
+    post:
+      tags: [account]
+      summary: 用验证码关闭二次验证
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TOTPCode" }
+      responses:
+        "204": { description: 已关闭 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: "`unauthorized` / `totp_invalid`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/devices:
+    get:
+      tags: [account]
+      summary: 已登录设备列表(不含已登出或已吊销的设备)
+      responses:
+        "200":
+          description: 设备
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [devices]
+                properties:
+                  devices:
+                    type: array
+                    items: { $ref: "#/components/schemas/Device" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/devices/{deviceId}:
+    delete:
+      tags: [account]
+      summary: 吊销设备令牌链
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { $ref: "#/components/schemas/UUID" } }
+      responses:
+        "204": { description: 已吊销 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/vaults:
+    get:
+      tags: [vaults]
+      summary: 库列表
+      responses:
+        "200":
+          description: 库
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [vaults]
+                properties:
+                  vaults:
+                    type: array
+                    items: { $ref: "#/components/schemas/Vault" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    post:
+      tags: [vaults]
+      summary: 创建库
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, encryptedName]
+              properties:
+                id: { $ref: "#/components/schemas/UUID" }
+                encryptedName: { $ref: "#/components/schemas/Base64Url" }
+      responses:
+        "201":
+          description: 库对象
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vault" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: "`vault_exists`:该库 ID 已存在"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/vaults/{vaultId}:
+    delete:
+      tags: [vaults]
+      summary: 删除库及其全部清单(块由回收任务清理)
+      parameters:
+        - $ref: "#/components/parameters/VaultId"
+      responses:
+        "204": { description: 已删除 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/chunks/check:
+    post:
+      tags: [chunks]
+      summary: 查询哪些块尚未上传
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  maxItems: 1000
+                  items: { $ref: "#/components/schemas/ChunkId" }
+      responses:
+        "200":
+          description: 缺失的块(去重,保持请求顺序)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [missing]
+                properties:
+                  missing:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChunkId" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/chunks/{chunkId}:
+    parameters:
+      - { name: chunkId, in: path, required: true, schema: { $ref: "#/components/schemas/ChunkId" } }
+    put:
+      tags: [chunks]
+      summary: 上传块密文(幂等)
+      description: 块按账号隔离;已存在时不重复存储也不重复计量。响应体为空。
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              contentMediaType: application/octet-stream
+              maxLength: 4194368
+      responses:
+        "201": { description: 新建 }
+        "200": { description: 已存在 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413":
+          description: "`payload_too_large`(超过 4 MiB + 64 字节)/ `quota_exceeded`(超出存储配额)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    get:
+      tags: [chunks]
+      summary: 下载块密文
+      responses:
+        "200":
+          description: 块密文字节
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                contentMediaType: application/octet-stream
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/vaults/{vaultId}/files/{fileId}/commit:
+    post:
+      tags: [files]
+      summary: 提交文件新版本
+      description: |
+        同一库的提交在事务内串行分配 seq。`chunks` 与清单内块列表一致(可含重复);
+        删除墓碑(`deleted=true`)的 `chunks` 必须为空且 `size` 为 0。
+      parameters:
+        - $ref: "#/components/parameters/VaultId"
+        - $ref: "#/components/parameters/FileId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommitRequest" }
+      responses:
+        "200":
+          description: 提交成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version, seq]
+                properties:
+                  version: { type: integer, format: int64 }
+                  seq: { type: integer, format: int64 }
+        "400":
+          description: "`invalid_request` / `missing_chunks`(附 `error.missing`)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`version_conflict`:baseVersion 不是当前版本;附 `error.head`(文件不存在时为 null)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/vaults/{vaultId}/changes:
+    get:
+      tags: [files]
+      summary: 增量变更
+      description: 每个文件只返回当前最新版本(按其 seq 升序);cursor = 本页最后一条的 seq,无变化时等于 since。
+      parameters:
+        - $ref: "#/components/parameters/VaultId"
+        - { name: since, in: query, required: false, schema: { type: integer, format: int64, minimum: 0, default: 0 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 1000, default: 500 }, description: 超过 1000 按 1000 处理 }
+      responses:
+        "200":
+          description: 变更页
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangesPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/vaults/{vaultId}/files/{fileId}/versions:
+    get:
+      tags: [files]
+      summary: 历史版本(新 → 旧)
+      parameters:
+        - $ref: "#/components/parameters/VaultId"
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: 版本列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [versions]
+                properties:
+                  versions:
+                    type: array
+                    items: { $ref: "#/components/schemas/Version" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/vaults/{vaultId}/trash:
+    get:
+      tags: [files]
+      summary: 回收站(墓碑清单,最近删除的在前)
+      parameters:
+        - $ref: "#/components/parameters/VaultId"
+      responses:
+        "200":
+          description: 回收站条目
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [files]
+                properties:
+                  files:
+                    type: array
+                    items: { $ref: "#/components/schemas/TrashItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/vaults/{vaultId}/files/{fileId}:
+    delete:
+      tags: [files]
+      summary: 永久删除(仅限已在回收站的文件)
+      parameters:
+        - $ref: "#/components/parameters/VaultId"
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "204": { description: 已永久删除 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`not_deleted`:文件不在回收站"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /v1/events:
+    get:
+      tags: [events]
+      summary: 实时通知(WebSocket)
+      description: |
+        握手带 `Authorization: Bearer <accessToken>`,升级为 WebSocket。
+        服务器推送文本帧 `VaultChangedEvent`,每 30 秒发 ping;设备登出或被吊销后连接以 1008 关闭,
+        服务停机时以 1001 关闭。通知只是提示,客户端收到后走 changes 拉取;重连成功先全量补拉一次。
+      responses:
+        "101": { description: 升级为 WebSocket }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "访问令牌:JWT,头 {alg: EdDSA, typ: JWT, kid},载荷 iss=typoza、aud=typoza-api、sub=userId、did=deviceId、iat、exp(15 分钟)。"
+
+  parameters:
+    VaultId:
+      name: vaultId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    FileId:
+      name: fileId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+
+  responses:
+    BadRequest:
+      description: "`invalid_request`:字段缺失或格式错"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: "`unauthorized` / `token_expired`(用刷新令牌换新)"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: "`forbidden`:库属于其他账号"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: "`not_found`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    PayloadTooLarge:
+      description: "`payload_too_large`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: "`rate_limited`"
+      headers:
+        Retry-After:
+          description: 建议等待的秒数
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    UUID:
+      type: string
+      description: 小写带连字符的 UUID
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    ChunkId:
+      type: string
+      description: hex(HMAC-SHA256(chunkIdKey, 块明文)),64 位小写十六进制
+      pattern: "^[0-9a-f]{64}$"
+    Base64Url:
+      type: string
+      description: base64url 无填充(RFC 4648 §5)
+      pattern: "^[A-Za-z0-9_-]+$"
+    Key32:
+      type: string
+      description: 32 字节的 base64url 无填充(43 字符)
+      pattern: "^[A-Za-z0-9_-]{43}$"
+    Timestamp:
+      type: string
+      format: date-time
+      examples: ["2026-10-16T01:02:03.123Z"]
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_request
+                - missing_chunks
+                - unauthorized
+                - token_expired
+                - refresh_reuse
+                - totp_required
+                - totp_invalid
+                - registration_closed
+                - forbidden
+                - not_found
+                - email_taken
+                - vault_exists
+                - version_conflict
+                - not_deleted
+                - payload_too_large
+                - quota_exceeded
+                - rate_limited
+                - internal
+            message: { type: string, description: 人读说明 }
+            missing:
+              description: 仅 `missing_chunks`:缺失的块 ID
+              type: array
+              items: { $ref: "#/components/schemas/ChunkId" }
+            head:
+              description: 仅 `version_conflict`:当前 head 版本;文件不存在时为 null
+              oneOf:
+                - { $ref: "#/components/schemas/Version" }
+                - { type: "null" }
+
+    KDF:
+      type: object
+      required: [algorithm, memoryKiB, iterations, parallelism, salt]
+      properties:
+        algorithm: { type: string, const: argon2id }
+        memoryKiB: { type: integer, minimum: 19456, default: 65536 }
+        iterations: { type: integer, minimum: 2, default: 3 }
+        parallelism: { type: integer, minimum: 1, maximum: 16, default: 4 }
+        salt:
+          type: string
+          description: 16 字节的 base64url 无填充
+          pattern: "^[A-Za-z0-9_-]{22}$"
+
+    DeviceInfo:
+      type: object
+      required: [name, platform]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200, examples: ["Z 的 MacBook Pro"] }
+        platform: { type: string, minLength: 1, maxLength: 32, examples: [macos] }
+
+    RegisterRequest:
+      type: object
+      required: [email, kdf, authKey, encryptedAccountKey, recoveryAuthKey, recoveryEncryptedAccountKey, device]
+      properties:
+        email: { type: string }
+        kdf: { $ref: "#/components/schemas/KDF" }
+        authKey: { $ref: "#/components/schemas/Key32" }
+        encryptedAccountKey: { $ref: "#/components/schemas/Base64Url" }
+        recoveryAuthKey: { $ref: "#/components/schemas/Key32" }
+        recoveryEncryptedAccountKey: { $ref: "#/components/schemas/Base64Url" }
+        device: { $ref: "#/components/schemas/DeviceInfo" }
+
+    Session:
+      type: object
+      required: [userId, deviceId, accessToken, accessTokenExpiresIn, refreshToken, encryptedAccountKey, kdf]
+      properties:
+        userId: { $ref: "#/components/schemas/UUID" }
+        deviceId: { $ref: "#/components/schemas/UUID" }
+        accessToken: { type: string }
+        accessTokenExpiresIn: { type: integer, const: 900 }
+        refreshToken: { type: string, pattern: "^tzr_[A-Za-z0-9_-]{43}$" }
+        encryptedAccountKey: { $ref: "#/components/schemas/Base64Url" }
+        kdf: { $ref: "#/components/schemas/KDF" }
+
+    Tokens:
+      type: object
+      required: [accessToken, accessTokenExpiresIn, refreshToken]
+      properties:
+        accessToken: { type: string }
+        accessTokenExpiresIn: { type: integer, const: 900 }
+        refreshToken: { type: string, pattern: "^tzr_[A-Za-z0-9_-]{43}$" }
+
+    Account:
+      type: object
+      required: [userId, email, totpEnabled, createdAt, usage]
+      properties:
+        userId: { $ref: "#/components/schemas/UUID" }
+        email: { type: string }
+        totpEnabled: { type: boolean }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        usage:
+          type: object
+          required: [usedBytes, quotaBytes]
+          properties:
+            usedBytes: { type: integer, format: int64, description: 块密文字节,按块去重 }
+            quotaBytes: { type: integer, format: int64 }
+
+    TOTPCode:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: "^[0-9]{6}$" }
+
+    Device:
+      type: object
+      required: [id, name, platform, createdAt, lastSeenAt, current]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        name: { type: string }
+        platform: { type: string }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+        lastSeenAt: { $ref: "#/components/schemas/Timestamp" }
+        current: { type: boolean, description: 是否为发起请求的设备 }
+
+    Vault:
+      type: object
+      required: [id, encryptedName, seq, createdAt]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        encryptedName: { $ref: "#/components/schemas/Base64Url" }
+        seq: { type: integer, format: int64, description: 库内最新变更序号 }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+
+    CommitRequest:
+      type: object
+      required: [baseVersion, manifest, chunks, size, deleted]
+      properties:
+        baseVersion: { type: integer, format: int64, minimum: 0, description: 新文件为 0 }
+        manifest: { $ref: "#/components/schemas/Base64Url" }
+        chunks:
+          type: array
+          items: { $ref: "#/components/schemas/ChunkId" }
+        size: { type: integer, format: int64, minimum: 0 }
+        deleted: { type: boolean }
+
+    Version:
+      type: object
+      required: [fileId, version, seq, manifest, deleted, size, deviceId, createdAt]
+      properties:
+        fileId: { $ref: "#/components/schemas/UUID" }
+        version: { type: integer, format: int64 }
+        seq: { type: integer, format: int64 }
+        manifest: { $ref: "#/components/schemas/Base64Url" }
+        deleted: { type: boolean }
+        size: { type: integer, format: int64 }
+        deviceId: { $ref: "#/components/schemas/UUID" }
+        createdAt: { $ref: "#/components/schemas/Timestamp" }
+
+    ChangesPage:
+      type: object
+      required: [changes, cursor, hasMore]
+      properties:
+        changes:
+          type: array
+          items: { $ref: "#/components/schemas/Version" }
+        cursor: { type: integer, format: int64 }
+        hasMore: { type: boolean }
+
+    TrashItem:
+      type: object
+      required: [fileId, version, manifest, deletedAt]
+      properties:
+        fileId: { $ref: "#/components/schemas/UUID" }
+        version: { type: integer, format: int64 }
+        manifest: { $ref: "#/components/schemas/Base64Url" }
+        deletedAt: { $ref: "#/components/schemas/Timestamp" }
+
+    VaultChangedEvent:
+      type: object
+      required: [type, vaultId, seq]
+      properties:
+        type: { type: string, const: vault.changed }
+        vaultId: { $ref: "#/components/schemas/UUID" }
+        seq: { type: integer, format: int64 }
+
+security:
+  - bearerAuth: []

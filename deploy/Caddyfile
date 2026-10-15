@@ -1,0 +1,15 @@
+# Caddy 自动申请并续期 HTTPS 证书(Let's Encrypt / ZeroSSL),把流量反代给 typoza-server。
+# 域名与证书联系邮箱来自 .env(经 docker-compose 注入的环境变量)。
+{
+	email {$ACME_EMAIL}
+}
+
+{$TYPOZA_DOMAIN} {
+	reverse_proxy server:8080 {
+		# 服务端只信受信代理网段的 X-Forwarded-For;这里用真实对端地址覆盖客户端自带的值。
+		header_up X-Forwarded-For {remote_host}
+	}
+	header {
+		-Server
+	}
+}

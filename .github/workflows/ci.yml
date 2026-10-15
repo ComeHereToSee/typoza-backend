@@ -48,6 +48,12 @@ jobs:
       - name: test
         if: ${{ !cancelled() }}
         run: ci/step.sh test go test -race -count=1 -coverprofile="$CI_OUT/coverage.out" ./...
+      - name: sdk vet
+        if: ${{ !cancelled() }}
+        run: ci/step.sh sdk-vet bash -c "cd sdk && go vet ./..."
+      - name: sdk test
+        if: ${{ !cancelled() }}
+        run: ci/step.sh sdk-test bash -c "cd sdk && go test -race -count=1 ./..."
       - name: govulncheck
         if: ${{ !cancelled() }}
         run: ci/step.sh govulncheck go run golang.org/x/vuln/cmd/govulncheck@latest ./...
@@ -76,6 +82,9 @@ jobs:
           mkdir -p "$CI_OUT/artifacts"
           ci/step.sh build-linux-amd64 env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/typoza-server-linux-amd64 ./cmd/typoza-server
           ci/step.sh build-darwin-arm64 env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o "$CI_OUT/artifacts/typoza-server-darwin-arm64" ./cmd/typoza-server
+      - name: docker build
+        if: ${{ !cancelled() }}
+        run: ci/step.sh docker-build docker build -f deploy/Dockerfile -t typoza-server:ci .
       - name: publish
         if: always()
         env:

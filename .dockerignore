@@ -1,0 +1,8 @@
+.git
+.github
+ci-out
+dist
+localClaude
+deploy/.env
+**/*_test.go
+e2e

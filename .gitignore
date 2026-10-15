@@ -3,3 +3,4 @@ localClaude/
 CLAUDE.local.md
 ci-out/
 dist/
+deploy/.env
