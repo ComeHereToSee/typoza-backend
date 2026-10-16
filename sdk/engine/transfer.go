@@ -71,7 +71,7 @@ type uploaded struct {
 // 读取期间文件被改动时返回 errLocalChanged,本次放弃,下一轮重新上传。
 func (e *Engine) upload(ctx context.Context, rel string) (*uploaded, error) {
 	abs := e.abs(rel)
-	f, err := os.Open(abs)
+	f, err := os.Open(abs) // #nosec G304 -- 同步文件夹里的文件,rel 已校验不越出根目录
 	if err != nil {
 		return nil, fmt.Errorf("engine: 打开 %s: %w", rel, err)
 	}
@@ -197,7 +197,7 @@ func (e *Engine) uploadChunks(ctx context.Context, f *os.File, rel string, ids, 
 // uploadMissing 在提交返回 missing_chunks 时补传(服务器的块可能在检查后被回收)。
 // size 是生成 chunks 时的文件大小;文件已经变了就放弃,下一轮重新上传。
 func (e *Engine) uploadMissing(ctx context.Context, rel string, chunks, missing []string, size int64) error {
-	f, err := os.Open(e.abs(rel))
+	f, err := os.Open(e.abs(rel)) // #nosec G304 -- 同步文件夹里的文件,rel 已校验不越出根目录
 	if err != nil {
 		return fmt.Errorf("engine: 打开 %s: %w", rel, err)
 	}

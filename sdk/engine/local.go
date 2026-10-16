@@ -87,7 +87,7 @@ func (e *Engine) inspect(abs string, rec *fileRecord) (localInfo, error) {
 
 // hashFile 流式计算文件内容摘要;读的过程中大小变了返回 errLocalChanged。
 func (e *Engine) hashFile(abs string) (string, fileStat, error) {
-	f, err := os.Open(abs)
+	f, err := os.Open(abs) // #nosec G304 -- 同步文件夹里的文件,路径由引擎在根目录下拼出
 	if err != nil {
 		return "", fileStat{}, fmt.Errorf("engine: 打开 %s: %w", abs, err)
 	}
@@ -109,7 +109,7 @@ func (e *Engine) hashFile(abs string) (string, fileStat, error) {
 
 // readVerified 读出整个文件并确认内容摘要仍是 want(用于合并、复制冲突副本前防止读到中途被改的内容)。
 func (e *Engine) readVerified(abs, want string) ([]byte, error) {
-	data, err := os.ReadFile(abs)
+	data, err := os.ReadFile(abs) // #nosec G304 -- 同步文件夹里的文件,路径由引擎在根目录下拼出
 	if err != nil {
 		return nil, fmt.Errorf("engine: 读取 %s: %w", abs, err)
 	}
@@ -131,7 +131,7 @@ func (e *Engine) ensureParent(rel string) error {
 		cur = filepath.Join(cur, seg)
 		fi, err := os.Lstat(cur)
 		if errors.Is(err, fs.ErrNotExist) {
-			if err := os.Mkdir(cur, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
+			if err := os.Mkdir(cur, 0o755); err != nil && !errors.Is(err, fs.ErrExist) { // #nosec G301 -- 用户文档里的普通文件夹,与 Finder 新建的权限一致
 				return fmt.Errorf("engine: 创建目录 %s: %w", cur, err)
 			}
 			fi, err = os.Lstat(cur)
@@ -336,7 +336,7 @@ func (e *Engine) loadBase(hash string) ([]byte, bool, error) {
 	if !crypto.ValidContentHash(hash) {
 		return nil, false, nil
 	}
-	data, err := os.ReadFile(e.basePath(hash))
+	data, err := os.ReadFile(e.basePath(hash)) // #nosec G304 -- 本地状态目录下按已校验的内容摘要取文件
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, false, nil
 	}

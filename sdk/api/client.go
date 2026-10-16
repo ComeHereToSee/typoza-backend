@@ -276,7 +276,7 @@ func jitter(d time.Duration) time.Duration {
 	if d <= 1 {
 		return d
 	}
-	return d/2 + rand.N(d/2+1)
+	return d/2 + rand.N(d/2+1) // #nosec G404 -- 重试退避的抖动,不涉及安全
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {

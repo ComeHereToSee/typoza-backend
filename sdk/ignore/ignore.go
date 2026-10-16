@@ -53,7 +53,7 @@ func New(patterns []string) *Matcher {
 
 // Load 读取 root/.typozaignore(不存在则只用内置规则)构造 Matcher。
 func Load(root string) (*Matcher, error) {
-	data, err := os.ReadFile(filepath.Join(root, FileName))
+	data, err := os.ReadFile(filepath.Join(root, FileName)) // #nosec G304 -- 同步根目录下固定文件名的忽略规则
 	if errors.Is(err, fs.ErrNotExist) {
 		return New(nil), nil
 	}

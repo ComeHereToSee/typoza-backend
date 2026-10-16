@@ -405,7 +405,7 @@ func (e *Engine) copyToConflict(rel string, info localInfo) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	src, err := os.Open(e.abs(rel))
+	src, err := os.Open(e.abs(rel)) // #nosec G304 -- 同步文件夹里的文件,rel 已校验不越出根目录
 	if err != nil {
 		return "", fmt.Errorf("engine: 打开 %s: %w", rel, err)
 	}

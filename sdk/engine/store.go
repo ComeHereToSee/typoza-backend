@@ -200,7 +200,7 @@ func (s *store) cursor() (int64, error) {
 		if len(v) != 8 {
 			return fmt.Errorf("engine: 状态库游标损坏(%d 字节)", len(v))
 		}
-		c = int64(binary.BigEndian.Uint64(v))
+		c = int64(binary.BigEndian.Uint64(v)) // #nosec G115 -- 游标是本库自己写入的非负值
 		return nil
 	})
 	return c, err
@@ -208,7 +208,7 @@ func (s *store) cursor() (int64, error) {
 
 func (s *store) setCursor(c int64) error {
 	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], uint64(c))
+	binary.BigEndian.PutUint64(b[:], uint64(c)) // #nosec G115 -- 游标来自服务端变更序号,非负
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket(bucketMeta).Put(keyCursor, b[:])
 	})
