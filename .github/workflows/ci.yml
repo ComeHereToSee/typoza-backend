@@ -58,12 +58,22 @@ jobs:
         run: ci/step.sh sdk-test bash -c "cd sdk && go test -race -count=1 ./..."
       - name: govulncheck
         if: ${{ !cancelled() }}
-        run: ci/step.sh govulncheck go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        # -show verbose:「依赖里有、代码没调用」的漏洞也列出模块与编号,便于留档与升级
+        run: ci/step.sh govulncheck go run golang.org/x/vuln/cmd/govulncheck@latest -show verbose ./...
       - name: gosec
         if: ${{ !cancelled() }}
         env:
           GOTOOLCHAIN: go1.26.9 # gosec v2.29.0 依赖的 x/tools v0.49.0 读不了 Go 1.27 导出数据
         run: ci/step.sh gosec go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -exclude-generated -severity medium ./...
+      # sdk/ 是独立模块,根目录的 ./... 扫不到它;端到端加密的代码在这里
+      - name: sdk govulncheck
+        if: ${{ !cancelled() }}
+        run: ci/step.sh sdk-govulncheck bash -c "cd sdk && go run golang.org/x/vuln/cmd/govulncheck@latest -show verbose ./..."
+      - name: sdk gosec
+        if: ${{ !cancelled() }}
+        env:
+          GOTOOLCHAIN: go1.26.9
+        run: ci/step.sh sdk-gosec bash -c "cd sdk && go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -exclude-generated -severity medium ./..."
       - name: publish
         if: always()
         env:
