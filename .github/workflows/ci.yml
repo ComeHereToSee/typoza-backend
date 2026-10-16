@@ -3,6 +3,8 @@ name: ci
 on:
   push:
     branches: [dev, main]
+    # 只改文档不跑:私有仓库的 Actions 分钟数有限(macOS 按 10 倍计)
+    paths-ignore: ['docs/**']
   workflow_dispatch:
 
 permissions:
