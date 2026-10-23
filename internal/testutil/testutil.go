@@ -33,6 +33,10 @@ func NewTestConfig(t testing.TB) config.Config {
 	t.Helper()
 	baseURL := os.Getenv("TYPOZA_TEST_DATABASE_URL")
 	if baseURL == "" {
+		// CI 上必须真跑:缺配置当失败,免得集成与端到端用例静默跳过
+		if os.Getenv("CI") == "true" {
+			t.Fatal("CI 上缺 TYPOZA_TEST_DATABASE_URL:需要 PostgreSQL 的测试不能跳过")
+		}
 		t.Skip("未设置 TYPOZA_TEST_DATABASE_URL,跳过需要 PostgreSQL 的测试")
 	}
 	suffix := randomHex(t, 6)
