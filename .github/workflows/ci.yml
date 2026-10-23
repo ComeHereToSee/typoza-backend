@@ -56,7 +56,7 @@ jobs:
         run: ci/step.sh sdk-vet bash -c "cd sdk && go vet ./..."
       - name: sdk test
         if: ${{ !cancelled() }}
-        run: ci/step.sh sdk-test bash -c "cd sdk && go test -race -count=1 ./..."
+        run: ci/step.sh sdk-test bash -c "cd sdk && go test -race -count=1 -v ./..."
       - name: govulncheck
         if: ${{ !cancelled() }}
         # -show verbose:「依赖里有、代码没调用」的漏洞也列出模块与编号,便于留档与升级

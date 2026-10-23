@@ -28,7 +28,7 @@ import (
 //   - 限流:与生产默认值相同,测试可在返回值上自行调整 cfg.Limits。
 //   - 后台回收:关闭定时任务(Retention.Interval = 0),需要时调用 (*app.App).RunRetention。
 //
-// 未设置 TYPOZA_TEST_DATABASE_URL 时调用 t.Skip。
+// 未设置 TYPOZA_TEST_DATABASE_URL 时:本机调用 t.Skip;CI(CI=true)上直接失败。
 func NewTestConfig(t testing.TB) config.Config {
 	t.Helper()
 	baseURL := os.Getenv("TYPOZA_TEST_DATABASE_URL")

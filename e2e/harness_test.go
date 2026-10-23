@@ -40,7 +40,7 @@ import (
 // e2e 在一分钟内从 127.0.0.1 发出大量登录、刷新请求,生产默认的每 IP 30 次/分钟会误伤。
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
-	cfg := testutil.NewTestConfig(t) // 缺 TYPOZA_TEST_DATABASE_URL 时 t.Skip
+	cfg := testutil.NewTestConfig(t) // 缺 TYPOZA_TEST_DATABASE_URL 时本机跳过、CI 上失败
 	cfg.Limits.IPPerMinute = 0
 	cfg.Limits.EmailPerMinute = 0
 	cfg.Limits.AccountPerMinute = 0
