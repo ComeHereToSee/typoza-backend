@@ -1,0 +1,196 @@
+	github.com/ComeHereToSee/typoza-backend/cmd/typoza-server		coverage: 0.0% of statements
+=== RUN   TestE2E_RegisterTwoDevicesSync
+--- PASS: TestE2E_RegisterTwoDevicesSync (1.40s)
+=== RUN   TestE2E_ConcurrentEdits
+--- PASS: TestE2E_ConcurrentEdits (1.37s)
+=== RUN   TestE2E_DeleteTrashRestore
+--- PASS: TestE2E_DeleteTrashRestore (1.15s)
+=== RUN   TestE2E_HistoryRestore
+--- PASS: TestE2E_HistoryRestore (1.64s)
+=== RUN   TestE2E_ChangePassword
+--- PASS: TestE2E_ChangePassword (2.45s)
+=== RUN   TestE2E_RecoveryReset
+--- PASS: TestE2E_RecoveryReset (1.77s)
+=== RUN   TestE2E_LargeFileAndDedup
+--- PASS: TestE2E_LargeFileAndDedup (3.42s)
+=== RUN   TestE2E_LiveSync
+--- PASS: TestE2E_LiveSync (2.38s)
+=== RUN   TestE2E_TamperedServerData
+--- PASS: TestE2E_TamperedServerData (0.85s)
+PASS
+coverage: [no statements]
+ok  	github.com/ComeHereToSee/typoza-backend/e2e	17.490s	coverage: [no statements]
+	github.com/ComeHereToSee/typoza-backend/internal/apierr		coverage: 0.0% of statements
+=== RUN   TestRegisterLoginRefreshLogout
+--- PASS: TestRegisterLoginRefreshLogout (0.80s)
+=== RUN   TestRefreshReuseAfterGraceIsReplay
+--- PASS: TestRefreshReuseAfterGraceIsReplay (0.47s)
+=== RUN   TestLoginReusesDeviceID
+--- PASS: TestLoginReusesDeviceID (0.54s)
+=== RUN   TestPreloginDeterministicFakeParams
+--- PASS: TestPreloginDeterministicFakeParams (0.27s)
+=== RUN   TestRegisterValidationAndClosed
+--- PASS: TestRegisterValidationAndClosed (0.38s)
+=== RUN   TestLoginRateLimitPerEmail
+--- PASS: TestLoginRateLimitPerEmail (1.53s)
+=== RUN   TestDeviceListAndRevocation
+--- PASS: TestDeviceListAndRevocation (1.00s)
+=== RUN   TestPasswordChangeRevokesOtherDevices
+--- PASS: TestPasswordChangeRevokesOtherDevices (1.11s)
+=== RUN   TestRecoveryFlow
+--- PASS: TestRecoveryFlow (1.56s)
+=== RUN   TestTOTPFlow
+--- PASS: TestTOTPFlow (1.19s)
+=== RUN   TestVaultsAndAccessControl
+--- PASS: TestVaultsAndAccessControl (0.78s)
+=== RUN   TestChunksUploadCheckDownloadIsolation
+--- PASS: TestChunksUploadCheckDownloadIsolation (1.16s)
+=== RUN   TestCommitConflictAndMissingChunks
+--- PASS: TestCommitConflictAndMissingChunks (0.85s)
+=== RUN   TestChangesPaginationLatestOnly
+--- PASS: TestChangesPaginationLatestOnly (0.68s)
+=== RUN   TestVersionsTrashAndPurge
+--- PASS: TestVersionsTrashAndPurge (0.46s)
+=== RUN   TestQuota
+--- PASS: TestQuota (0.78s)
+=== RUN   TestRetention
+--- PASS: TestRetention (0.86s)
+=== RUN   TestDeleteAccountRemovesEverything
+--- PASS: TestDeleteAccountRemovesEverything (0.68s)
+=== RUN   TestEventsWebSocket
+--- PASS: TestEventsWebSocket (0.64s)
+PASS
+coverage: 57.1% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/app	16.789s	coverage: 57.1% of statements
+=== RUN   TestHasherDeterministicAndVerify
+--- PASS: TestHasherDeterministicAndVerify (0.59s)
+=== RUN   TestHasherRespectsContext
+--- PASS: TestHasherRespectsContext (0.00s)
+=== RUN   TestJWTRoundTripAndClaims
+--- PASS: TestJWTRoundTripAndClaims (0.01s)
+=== RUN   TestJWTExpired
+--- PASS: TestJWTExpired (0.00s)
+=== RUN   TestJWTTampered
+--- PASS: TestJWTTampered (0.01s)
+=== RUN   TestJWTRejectsOtherAlgorithms
+--- PASS: TestJWTRejectsOtherAlgorithms (0.00s)
+=== RUN   TestJWTWrongAudienceOrIssuer
+--- PASS: TestJWTWrongAudienceOrIssuer (0.00s)
+=== RUN   TestOpaqueTokens
+--- PASS: TestOpaqueTokens (0.00s)
+=== RUN   TestHOTPRFC6238Vectors
+--- PASS: TestHOTPRFC6238Vectors (0.00s)
+=== RUN   TestHOTPRFC4226Vectors
+--- PASS: TestHOTPRFC4226Vectors (0.00s)
+=== RUN   TestVerifyTOTPWindowAndReplay
+--- PASS: TestVerifyTOTPWindowAndReplay (0.00s)
+=== RUN   TestTOTPSecretEncodingAndURL
+--- PASS: TestTOTPSecretEncodingAndURL (0.00s)
+=== RUN   TestSecretBox
+--- PASS: TestSecretBox (0.00s)
+PASS
+coverage: 88.1% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/auth	1.656s	coverage: 88.1% of statements
+=== RUN   TestValidKey
+--- PASS: TestValidKey (0.00s)
+=== RUN   TestFSContract
+--- PASS: TestFSContract (0.02s)
+=== RUN   TestFSSizeMismatchLeavesNothing
+--- PASS: TestFSSizeMismatchLeavesNothing (0.02s)
+=== RUN   TestFSOverwriteIsAtomic
+--- PASS: TestFSOverwriteIsAtomic (0.01s)
+=== RUN   TestFSRejectsSymlinkEscape
+--- PASS: TestFSRejectsSymlinkEscape (0.00s)
+=== RUN   TestS3Contract
+--- PASS: TestS3Contract (0.13s)
+PASS
+coverage: 72.1% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/blob	1.201s	coverage: 72.1% of statements
+=== RUN   TestDefaults
+--- PASS: TestDefaults (0.00s)
+=== RUN   TestMissingRequiredListsAll
+--- PASS: TestMissingRequiredListsAll (0.00s)
+=== RUN   TestInvalidValues
+--- PASS: TestInvalidValues (0.00s)
+=== RUN   TestSecretsNotInErrorsOrLogValue
+--- PASS: TestSecretsNotInErrorsOrLogValue (0.00s)
+=== RUN   TestOverridesAndParsing
+--- PASS: TestOverridesAndParsing (0.00s)
+=== RUN   TestS3Config
+--- PASS: TestS3Config (0.00s)
+PASS
+coverage: 88.3% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/config	1.024s	coverage: 88.3% of statements
+=== RUN   TestHealthzAndSecurityHeaders
+--- PASS: TestHealthzAndSecurityHeaders (0.01s)
+=== RUN   TestRequestIDPropagation
+--- PASS: TestRequestIDPropagation (0.00s)
+=== RUN   TestReadyz
+--- PASS: TestReadyz (0.00s)
+=== RUN   TestUnknownRouteReturnsProtocolError
+--- PASS: TestUnknownRouteReturnsProtocolError (0.00s)
+=== RUN   TestAuthRequired
+--- PASS: TestAuthRequired (0.00s)
+=== RUN   TestWriteErrorFormat
+--- PASS: TestWriteErrorFormat (0.00s)
+=== RUN   TestPanicRecovery
+--- PASS: TestPanicRecovery (0.00s)
+=== RUN   TestDecodeJSON
+--- PASS: TestDecodeJSON (0.00s)
+=== RUN   TestIPRateLimit
+--- PASS: TestIPRateLimit (0.00s)
+=== RUN   TestClientIP
+--- PASS: TestClientIP (0.00s)
+=== RUN   TestValidators
+--- PASS: TestValidators (0.00s)
+=== RUN   TestPutChunkTooLarge
+--- PASS: TestPutChunkTooLarge (0.01s)
+PASS
+coverage: 31.6% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/httpapi	1.090s	coverage: 31.6% of statements
+=== RUN   TestNewIsValidAndUnique
+--- PASS: TestNewIsValidAndUnique (0.01s)
+=== RUN   TestValid
+--- PASS: TestValid (0.00s)
+PASS
+coverage: 96.0% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/ids	1.016s	coverage: 96.0% of statements
+	github.com/ComeHereToSee/typoza-backend/internal/metrics		coverage: 0.0% of statements
+=== RUN   TestLoadSortsAndValidates
+--- PASS: TestLoadSortsAndValidates (0.00s)
+=== RUN   TestEmbeddedMigrationsLoad
+--- PASS: TestEmbeddedMigrationsLoad (0.00s)
+PASS
+coverage: 33.3% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/migrate	1.021s	coverage: 33.3% of statements
+=== RUN   TestHubDeliversOnlyToSameUser
+--- PASS: TestHubDeliversOnlyToSameUser (0.00s)
+=== RUN   TestHubDoesNotBlockWhenBufferFull
+--- PASS: TestHubDoesNotBlockWhenBufferFull (0.00s)
+=== RUN   TestSubscriptionCloseRemoves
+--- PASS: TestSubscriptionCloseRemoves (0.00s)
+=== RUN   TestHubCloseSignalsDone
+--- PASS: TestHubCloseSignalsDone (0.00s)
+=== RUN   TestPayloadAndEventJSON
+--- PASS: TestPayloadAndEventJSON (0.00s)
+PASS
+coverage: 50.0% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/notify	1.013s	coverage: 50.0% of statements
+=== RUN   TestBurstThenDeny
+--- PASS: TestBurstThenDeny (0.00s)
+=== RUN   TestRefill
+--- PASS: TestRefill (0.00s)
+=== RUN   TestSweepRemovesIdleBuckets
+--- PASS: TestSweepRemovesIdleBuckets (0.00s)
+=== RUN   TestDisabled
+--- PASS: TestDisabled (0.00s)
+=== RUN   TestConcurrentAllow
+--- PASS: TestConcurrentAllow (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	github.com/ComeHereToSee/typoza-backend/internal/ratelimit	1.021s	coverage: 100.0% of statements
+	github.com/ComeHereToSee/typoza-backend/internal/retention		coverage: 0.0% of statements
+	github.com/ComeHereToSee/typoza-backend/internal/service		coverage: 0.0% of statements
+	github.com/ComeHereToSee/typoza-backend/internal/store		coverage: 0.0% of statements
+	github.com/ComeHereToSee/typoza-backend/internal/testutil		coverage: 0.0% of statements
+?   	github.com/ComeHereToSee/typoza-backend/migrations	[no test files]

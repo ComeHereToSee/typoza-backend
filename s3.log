@@ -1,0 +1,34 @@
+Unable to find image 'rustfs/rustfs:latest' locally
+latest: Pulling from rustfs/rustfs
+55afa1ecc21d: Already exists
+918fdaedc474: Pulling fs layer
+32b091294f09: Pulling fs layer
+26be4b44ec74: Pulling fs layer
+c60548f86c71: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+cddf3492d4a5: Pulling fs layer
+c60548f86c71: Waiting
+4f4fb700ef54: Waiting
+cddf3492d4a5: Waiting
+32b091294f09: Verifying Checksum
+32b091294f09: Download complete
+918fdaedc474: Verifying Checksum
+918fdaedc474: Download complete
+c60548f86c71: Verifying Checksum
+c60548f86c71: Download complete
+4f4fb700ef54: Verifying Checksum
+4f4fb700ef54: Download complete
+cddf3492d4a5: Verifying Checksum
+cddf3492d4a5: Download complete
+26be4b44ec74: Verifying Checksum
+26be4b44ec74: Download complete
+918fdaedc474: Pull complete
+32b091294f09: Pull complete
+26be4b44ec74: Pull complete
+c60548f86c71: Pull complete
+4f4fb700ef54: Pull complete
+cddf3492d4a5: Pull complete
+Digest: sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b
+Status: Downloaded newer image for rustfs/rustfs:latest
+f1b133591c24a7ba03ff66a4b68e03899163d31f6680a1c831630d0d688d04fc
+s3 ready (HTTP 403)

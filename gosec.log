@@ -1,0 +1,137 @@
+go: downloading go1.26.9 (linux/amd64)
+go: downloading github.com/securego/gosec/v2 v2.29.0
+go: downloading golang.org/x/sync v0.22.0
+go: downloading golang.org/x/tools v0.49.0
+go: downloading github.com/anthropics/anthropic-sdk-go v1.66.0
+go: downloading github.com/openai/openai-go/v3 v3.52.0
+go: downloading google.golang.org/genai v1.69.0
+go: downloading github.com/ccojocar/zxcvbn-go v1.0.4
+go: downloading github.com/tidwall/sjson v1.2.5
+go: downloading github.com/invopop/jsonschema v0.14.0
+go: downloading github.com/pb33f/ordered-map/v2 v2.3.1
+go: downloading github.com/standard-webhooks/standard-webhooks/libraries v0.0.1
+go: downloading github.com/tidwall/gjson v1.19.0
+go: downloading github.com/gookit/color v1.6.1
+go: downloading golang.org/x/mod v0.40.0
+go: downloading cloud.google.com/go/auth v0.23.2
+go: downloading cloud.google.com/go v0.123.0
+go: downloading github.com/google/go-cmp v0.7.0
+go: downloading github.com/gorilla/websocket v1.5.3
+go: downloading github.com/bahlo/generic-list-go v0.2.0
+go: downloading github.com/buger/jsonparser v1.6.1
+go: downloading go.yaml.in/yaml/v4 v4.0.0-rc.6
+go: downloading github.com/tidwall/match v1.2.0
+go: downloading github.com/tidwall/pretty v1.2.1
+go: downloading github.com/xo/terminfo v1.0.0
+go: downloading github.com/googleapis/gax-go/v2 v2.24.0
+go: downloading cloud.google.com/go/compute/metadata v0.9.0
+go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
+go: downloading go.opentelemetry.io/otel v1.45.0
+go: downloading go.opentelemetry.io/otel/trace v1.45.0
+go: downloading golang.org/x/net v0.58.0
+go: downloading google.golang.org/api v0.293.0
+go: downloading github.com/googleapis/enterprise-certificate-proxy v0.3.20
+go: downloading github.com/google/s2a-go v0.1.9
+go: downloading google.golang.org/grpc v1.83.1
+go: downloading go.opentelemetry.io/otel/metric v1.45.0
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688
+go: downloading golang.org/x/text v0.41.0
+go: downloading golang.org/x/sys v0.47.0
+go: downloading golang.org/x/crypto v0.55.0
+[gosec] 2026/10/23 11:33:08 Including rules: default
+[gosec] 2026/10/23 11:33:08 Excluding rules: default
+[gosec] 2026/10/23 11:33:08 Including analyzers: default
+[gosec] 2026/10/23 11:33:08 Excluding analyzers: default
+[gosec] 2026/10/23 11:33:08 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/migrate
+[gosec] 2026/10/23 11:33:08 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/notify
+[gosec] 2026/10/23 11:33:08 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/metrics
+[gosec] 2026/10/23 11:33:08 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/store
+[gosec] 2026/10/23 11:33:14 Checking package: metrics
+[gosec] 2026/10/23 11:33:14 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/metrics/metrics.go
+[gosec] 2026/10/23 11:33:14 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/api
+[gosec] 2026/10/23 11:33:14 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/engine
+[gosec] 2026/10/23 11:33:14 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/internal/relpath
+[gosec] 2026/10/23 11:33:14 Import directory: /home/runner/work/typoza-backend/typoza-backend/cmd/typoza-server
+[gosec] 2026/10/23 11:33:20 Checking package: notify
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/notify/notify.go
+[gosec] 2026/10/23 11:33:20 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/ids
+[gosec] 2026/10/23 11:33:20 Checking package: store
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/store/chunks.go
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/store/files.go
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/store/retention.go
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/store/sessions.go
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/store/store.go
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/store/users.go
+[gosec] 2026/10/23 11:33:20 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/store/vaults.go
+[gosec] 2026/10/23 11:33:20 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/retention
+[gosec] 2026/10/23 11:33:21 Checking package: ids
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/ids/ids.go
+[gosec] 2026/10/23 11:33:21 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/testutil
+[gosec] 2026/10/23 11:33:21 Checking package: migrate
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/migrate/migrate.go
+[gosec] 2026/10/23 11:33:21 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/crypto
+[gosec] 2026/10/23 11:33:21 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/merge
+[gosec] 2026/10/23 11:33:21 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/auth
+[gosec] 2026/10/23 11:33:21 Checking package: testutil
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/testutil/testutil.go
+[gosec] 2026/10/23 11:33:21 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/config
+[gosec] 2026/10/23 11:33:21 Checking package: auth
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/auth/jwt.go
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/auth/opaque.go
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/auth/password.go
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/auth/secretbox.go
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/auth/totp.go
+[gosec] 2026/10/23 11:33:21 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/service
+[gosec] 2026/10/23 11:33:21 Checking package: config
+[gosec] 2026/10/23 11:33:21 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/config/config.go
+[gosec] 2026/10/23 11:33:21 Import directory: /home/runner/work/typoza-backend/typoza-backend/migrations
+[gosec] 2026/10/23 11:33:22 Checking package: migrations
+[gosec] 2026/10/23 11:33:22 Checking file: /home/runner/work/typoza-backend/typoza-backend/migrations/migrations.go
+[gosec] 2026/10/23 11:33:22 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/account
+[gosec] 2026/10/23 11:33:22 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/fakeserver
+[gosec] 2026/10/23 11:33:22 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/internal/uuid
+[gosec] 2026/10/23 11:33:22 Import directory: /home/runner/work/typoza-backend/typoza-backend/e2e
+[gosec] 2026/10/23 11:33:22 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/apierr
+[gosec] 2026/10/23 11:33:22 Checking package: apierr
+[gosec] 2026/10/23 11:33:22 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/apierr/apierr.go
+[gosec] 2026/10/23 11:33:22 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/app
+[gosec] 2026/10/23 11:33:27 Checking package: retention
+[gosec] 2026/10/23 11:33:27 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/retention/retention.go
+[gosec] 2026/10/23 11:33:27 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/blob
+[gosec] 2026/10/23 11:33:27 Checking package: service
+[gosec] 2026/10/23 11:33:27 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/service/account.go
+[gosec] 2026/10/23 11:33:27 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/service/service.go
+[gosec] 2026/10/23 11:33:27 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/service/sync.go
+[gosec] 2026/10/23 11:33:27 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/service/types.go
+[gosec] 2026/10/23 11:33:27 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/ratelimit
+[gosec] 2026/10/23 11:33:28 Checking package: blob
+[gosec] 2026/10/23 11:33:28 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/blob/blob.go
+[gosec] 2026/10/23 11:33:28 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/blob/fs.go
+[gosec] 2026/10/23 11:33:28 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/blob/s3.go
+[gosec] 2026/10/23 11:33:28 Checking package: ratelimit
+[gosec] 2026/10/23 11:33:28 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/ratelimit/ratelimit.go
+[gosec] 2026/10/23 11:33:28 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/ignore
+[gosec] 2026/10/23 11:33:28 Import directory: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi
+[gosec] 2026/10/23 11:33:29 Checking package: httpapi
+[gosec] 2026/10/23 11:33:29 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi/events.go
+[gosec] 2026/10/23 11:33:29 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi/handlers_account.go
+[gosec] 2026/10/23 11:33:29 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi/handlers_sync.go
+[gosec] 2026/10/23 11:33:29 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi/middleware.go
+[gosec] 2026/10/23 11:33:29 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi/respond.go
+[gosec] 2026/10/23 11:33:29 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi/server.go
+[gosec] 2026/10/23 11:33:29 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/httpapi/validate.go
+[gosec] 2026/10/23 11:33:31 Checking package: app
+[gosec] 2026/10/23 11:33:31 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/app/app.go
+[gosec] 2026/10/23 11:33:31 Checking file: /home/runner/work/typoza-backend/typoza-backend/internal/app/tracing.go
+[gosec] 2026/10/23 11:33:31 Checking package: main
+[gosec] 2026/10/23 11:33:31 Checking file: /home/runner/work/typoza-backend/typoza-backend/cmd/typoza-server/main.go
+Results:
+
+
+Summary:
+  Gosec  : dev
+  Files  : 39
+  Lines  : 6225
+  Nosec  : 3
+  Issues : 0
+

@@ -1,0 +1,9 @@
+s3	0	8
+vet	0	28
+test	0	56
+sdk-vet	0	0
+sdk-test	0	7
+govulncheck	0	7
+gosec	0	74
+sdk-govulncheck	0	1
+sdk-gosec	0	2

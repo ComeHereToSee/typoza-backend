@@ -1,0 +1,111 @@
+=== RUN   TestRegisterLoginChangePasswordRecover
+--- PASS: TestRegisterLoginChangePasswordRecover (2.19s)
+=== RUN   TestInputValidation
+--- PASS: TestInputValidation (0.00s)
+=== RUN   TestRejectWeakServerKDF
+--- PASS: TestRejectWeakServerKDF (0.00s)
+PASS
+ok  	github.com/ComeHereToSee/typoza-backend/sdk/account	3.238s
+=== RUN   TestNew_SchemePolicy
+--- PASS: TestNew_SchemePolicy (0.00s)
+=== RUN   TestB64_JSON
+--- PASS: TestB64_JSON (0.00s)
+=== RUN   TestErrorParsing
+--- PASS: TestErrorParsing (0.01s)
+=== RUN   TestRetry5xxButNot4xx
+--- PASS: TestRetry5xxButNot4xx (0.02s)
+=== RUN   TestRefresh_SingleFlightAndRotation
+--- PASS: TestRefresh_SingleFlightAndRotation (0.08s)
+=== RUN   TestSubscribeEvents
+--- PASS: TestSubscribeEvents (0.01s)
+PASS
+ok  	github.com/ComeHereToSee/typoza-backend/sdk/api	1.139s
+=== RUN   TestHKDF_RFC5869Case1
+--- PASS: TestHKDF_RFC5869Case1 (0.00s)
+=== RUN   TestChunkID_RFC4231Case2
+--- PASS: TestChunkID_RFC4231Case2 (0.00s)
+=== RUN   TestArgon2id_ReferenceVectors
+--- PASS: TestArgon2id_ReferenceVectors (0.42s)
+=== RUN   TestDeriveMasterKey_NFCAndValidation
+--- PASS: TestDeriveMasterKey_NFCAndValidation (0.31s)
+=== RUN   TestKeySeparation
+--- PASS: TestKeySeparation (0.00s)
+=== RUN   TestSealOpen_RoundTripAndTamper
+--- PASS: TestSealOpen_RoundTripAndTamper (0.00s)
+=== RUN   TestAccountKeyWrap
+--- PASS: TestAccountKeyWrap (0.00s)
+=== RUN   TestVaultName
+--- PASS: TestVaultName (0.00s)
+=== RUN   TestManifest_RoundTripAndBinding
+--- PASS: TestManifest_RoundTripAndBinding (0.00s)
+=== RUN   TestManifest_Validate
+--- PASS: TestManifest_Validate (0.00s)
+=== RUN   TestChunk_RoundTripCompressionAndTamper
+--- PASS: TestChunk_RoundTripCompressionAndTamper (0.02s)
+=== RUN   TestContentHash
+--- PASS: TestContentHash (0.00s)
+=== RUN   TestRecoveryCode
+--- PASS: TestRecoveryCode (0.00s)
+PASS
+ok  	github.com/ComeHereToSee/typoza-backend/sdk/crypto	1.789s
+=== RUN   TestUploadPullModify
+--- PASS: TestUploadPullModify (0.17s)
+=== RUN   TestConcurrentEdit_AutoMerge
+--- PASS: TestConcurrentEdit_AutoMerge (0.23s)
+=== RUN   TestConcurrentEdit_ConflictCopy
+--- PASS: TestConcurrentEdit_ConflictCopy (0.23s)
+=== RUN   TestBinaryConflict
+--- PASS: TestBinaryConflict (0.09s)
+=== RUN   TestRemoteDelete_TrashHookAndRestore
+--- PASS: TestRemoteDelete_TrashHookAndRestore (0.10s)
+=== RUN   TestLocalDeleteVsRemoteModify_KeepsContent
+--- PASS: TestLocalDeleteVsRemoteModify_KeepsContent (0.15s)
+=== RUN   TestRemoteDeleteVsLocalModify_KeepsContent
+--- PASS: TestRemoteDeleteVsLocalModify_KeepsContent (0.04s)
+=== RUN   TestRename_ReusesChunks
+--- PASS: TestRename_ReusesChunks (0.04s)
+=== RUN   TestLargeFileAndDedup
+--- PASS: TestLargeFileAndDedup (1.17s)
+=== RUN   TestTamperedChunkIsRejected
+--- PASS: TestTamperedChunkIsRejected (0.11s)
+=== RUN   TestSamePathCreatedOnTwoDevices
+--- PASS: TestSamePathCreatedOnTwoDevices (0.03s)
+=== RUN   TestPathClashBetweenCommittedFiles
+--- PASS: TestPathClashBetweenCommittedFiles (0.05s)
+=== RUN   TestHistoryRestore
+--- PASS: TestHistoryRestore (0.05s)
+=== RUN   TestIgnoreRules
+--- PASS: TestIgnoreRules (0.03s)
+=== RUN   TestTokenExpiryDuringSync
+--- PASS: TestTokenExpiryDuringSync (0.02s)
+=== RUN   TestNewValidatesOptions
+--- PASS: TestNewValidatesOptions (0.00s)
+=== RUN   TestStart_WatcherAndPush
+--- PASS: TestStart_WatcherAndPush (1.55s)
+=== RUN   TestConflictName
+--- PASS: TestConflictName (0.01s)
+PASS
+ok  	github.com/ComeHereToSee/typoza-backend/sdk/engine	5.083s
+=== RUN   TestMerge3
+--- PASS: TestMerge3 (0.00s)
+=== RUN   TestMerge3_EdgeCases
+--- PASS: TestMerge3_EdgeCases (0.00s)
+=== RUN   TestMerge3_TooManyEdits
+--- PASS: TestMerge3_TooManyEdits (0.16s)
+=== RUN   TestMatchIsLongestCommonSubsequence
+--- PASS: TestMatchIsLongestCommonSubsequence (0.04s)
+PASS
+ok  	github.com/ComeHereToSee/typoza-backend/sdk/engine/merge	1.219s
+?   	github.com/ComeHereToSee/typoza-backend/sdk/fakeserver	[no test files]
+=== RUN   TestBuiltin
+--- PASS: TestBuiltin (0.00s)
+=== RUN   TestPatterns
+--- PASS: TestPatterns (0.00s)
+=== RUN   TestLiteralMetaChars
+--- PASS: TestLiteralMetaChars (0.00s)
+=== RUN   TestLoad
+--- PASS: TestLoad (0.00s)
+PASS
+ok  	github.com/ComeHereToSee/typoza-backend/sdk/ignore	1.021s
+?   	github.com/ComeHereToSee/typoza-backend/sdk/internal/relpath	[no test files]
+?   	github.com/ComeHereToSee/typoza-backend/sdk/internal/uuid	[no test files]

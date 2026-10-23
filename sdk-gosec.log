@@ -1,0 +1,56 @@
+[gosec] 2026/10/23 11:33:34 Including rules: default
+[gosec] 2026/10/23 11:33:34 Excluding rules: default
+[gosec] 2026/10/23 11:33:34 Including analyzers: default
+[gosec] 2026/10/23 11:33:34 Excluding analyzers: default
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/account
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/api
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/crypto
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/engine
+[gosec] 2026/10/23 11:33:34 Checking package: crypto
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/crypto/chunk.go
+[gosec] 2026/10/23 11:33:34 Checking package: api
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/crypto/keys.go
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/api/client.go
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/crypto/manifest.go
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/crypto/recovery.go
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/crypto/seal.go
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/api/endpoints.go
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/api/errors.go
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/merge
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/api/events.go
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/api/types.go
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/internal/relpath
+[gosec] 2026/10/23 11:33:34 Checking package: account
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/account/account.go
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/fakeserver
+[gosec] 2026/10/23 11:33:34 Checking package: merge
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/merge/merge.go
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/ignore
+[gosec] 2026/10/23 11:33:34 Checking package: relpath
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/internal/relpath/relpath.go
+[gosec] 2026/10/23 11:33:34 Import directory: /home/runner/work/typoza-backend/typoza-backend/sdk/internal/uuid
+[gosec] 2026/10/23 11:33:34 Checking package: ignore
+[gosec] 2026/10/23 11:33:34 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/ignore/ignore.go
+[gosec] 2026/10/23 11:33:35 Checking package: uuid
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/internal/uuid/uuid.go
+[gosec] 2026/10/23 11:33:35 Checking package: fakeserver
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/fakeserver/fakeserver.go
+[gosec] 2026/10/23 11:33:35 Checking package: engine
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/engine.go
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/history.go
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/local.go
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/pull.go
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/push.go
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/run.go
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/store.go
+[gosec] 2026/10/23 11:33:35 Checking file: /home/runner/work/typoza-backend/typoza-backend/sdk/engine/transfer.go
+Results:
+
+
+Summary:
+  Gosec  : dev
+  Files  : 24
+  Lines  : 6006
+  Nosec  : 11
+  Issues : 0
+
